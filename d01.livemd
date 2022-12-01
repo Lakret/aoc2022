@@ -1,0 +1,76 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# AoC 2022, D1
+
+## Section
+
+```elixir
+defmodule D01 do
+  def read_input(path \\ "inputs/d01") do
+    {curr, final} =
+      File.read!(path)
+      |> String.split("\n", trim: false)
+      |> Enum.reduce({0, []}, fn
+        "", {curr, final} ->
+          {0, [curr | final]}
+
+        num, {curr, final} ->
+          {num, ""} = Integer.parse(num)
+          {curr + num, final}
+      end)
+
+    [curr | final] |> Enum.reverse()
+  end
+
+  def p1(calories), do: Enum.max(calories)
+
+  def p2(calories) do
+    calories
+    |> Enum.sort(:desc)
+    |> Enum.take(3)
+    |> Enum.sum()
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, D01, <<70, 79, 82, 49, 0, 0, 11, ...>>, {:p2, 1}}
+```
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule MyTest do
+  use ExUnit.Case, async: true
+
+  test "p1" do
+    calories = D01.read_input()
+    assert D01.p1(calories) == 69281
+  end
+
+  test "p2" do
+    calories = D01.read_input()
+    assert D01.p2(calories) == 201_524
+  end
+end
+
+ExUnit.run()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+..
+Finished in 0.00 seconds (0.00s async, 0.00s sync)
+2 tests, 0 failures
+
+Randomized with seed 499033
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{excluded: 0, failures: 0, skipped: 0, total: 2}
+```
