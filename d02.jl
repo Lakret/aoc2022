@@ -55,19 +55,19 @@ p2_round_points = Dict(
     "Z" => 6
 )
 
-lose_signs = map(kv -> (kv[2], kv[1]), collect(win_signs)) |> Dict
+lose_signs = map(reverse, collect(win_signs)) |> Dict
 
 
 function score_move2(move)
+    opponent_sign = decipher[move[1]]
     outcome = p2_round_points[move[2]]
+
     sign =
         if outcome == 3
-            decipher[move[1]]
+            opponent_sign
         elseif outcome == 6
-            opponent_sign = decipher[move[1]]
             win_signs[opponent_sign]
         else
-            opponent_sign = decipher[move[1]]
             lose_signs[opponent_sign]
         end
 
@@ -83,7 +83,7 @@ test_input = [["A", "Y"], ["B", "X"], ["C", "Z"]]
 inp = parse_input()
 
 @assert p1(test_input) == 15
-@assert p1(inp) == 10595
+@assert @show p1(inp) == 10595
 
 @assert p2(test_input) == 12
-@assert p2(inp) == 9541
+@assert @show p2(inp) == 9541

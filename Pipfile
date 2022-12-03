@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+numpy = "*"
+pandas = "*"
+plotly = "*"
+kaleido = "*"
+
+[dev-packages]
+black = "*"
+pylama = "*"
+jupyter = "*"
+ipython = "*"
+
+[requires]
+python_version = "3.10"
