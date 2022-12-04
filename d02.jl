@@ -1,11 +1,8 @@
 function parse_input()
     inp = read("inputs/d02", String) |> chomp
-    inp = split(inp, "\n")
-    inp = map(x -> split(x), inp)
-    inp
+    map(x -> split(x), split(inp, "\n"))
 end
-
-
+    
 decipher = Dict(
     "A" => "Rock",
     "B" => "Paper",
@@ -15,18 +12,8 @@ decipher = Dict(
     "Z" => "Scissors"
 )
 
-sign_points = Dict(
-    "Rock" => 1,
-    "Paper" => 2,
-    "Scissors" => 3
-)
-
-win_signs = Dict(
-    "Scissors" => "Rock",
-    "Paper" => "Scissors",
-    "Rock" => "Paper"
-)
-
+sign_points = Dict("Rock" => 1, "Paper" => 2, "Scissors" => 3)
+win_signs = Dict("Scissors" => "Rock", "Paper" => "Scissors", "Rock" => "Paper")
 
 function score_move(move)
     deciphered_move = map(x -> decipher[x], move)
@@ -43,20 +30,11 @@ function score_move(move)
     round_outcome + sign_points[deciphered_move[2]]
 end
 
-
-function p1(inp)
-    map(score_move, inp) |> sum
-end
+p1(inp) = map(score_move, inp) |> sum
 
 
-p2_round_points = Dict(
-    "X" => 0,
-    "Y" => 3,
-    "Z" => 6
-)
-
+p2_round_points = Dict("X" => 0, "Y" => 3, "Z" => 6)
 lose_signs = map(reverse, collect(win_signs)) |> Dict
-
 
 function score_move2(move)
     opponent_sign = decipher[move[1]]
@@ -74,9 +52,7 @@ function score_move2(move)
     outcome + sign_points[sign]
 end
 
-function p2(inp)
-    map(score_move2, inp) |> sum
-end
+p2(inp) = map(score_move2, inp) |> sum
 
 
 test_input = [["A", "Y"], ["B", "X"], ["C", "Z"]]
