@@ -22,6 +22,31 @@ struct Move {
     num: usize,
 }
 
+fn p1<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
+    let mut crates = crates.clone();
+    for mv in moves {
+        for _ in 0..mv.num {
+            let x = crates.state[mv.from - 1].pop().unwrap();
+            crates.state[mv.to - 1].push(x);
+        }
+    }
+
+    crates.get_top_crates()
+}
+
+fn p2<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
+    let mut crates = crates.clone();
+    for mv in moves {
+        let source_crate = &mut crates.state[mv.from - 1];
+        let start_idx = source_crate.len() - mv.num;
+        let mut elems = source_crate.drain(start_idx..).collect::<Vec<_>>();
+
+        crates.state[mv.to - 1].append(&mut elems);
+    }
+
+    crates.get_top_crates()
+}
+
 fn read_input<const N: usize>(path: &str) -> (Crates<N>, Vec<Move>) {
     let content = fs::read_to_string(path).unwrap();
     let mut lines = content.trim_end().split("\n");
@@ -61,31 +86,6 @@ fn read_input<const N: usize>(path: &str) -> (Crates<N>, Vec<Move>) {
     }
 
     (crates, moves)
-}
-
-fn p1<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
-    let mut crates = crates.clone();
-    for mv in moves {
-        for _ in 0..mv.num {
-            let x = crates.state[mv.from - 1].pop().unwrap();
-            crates.state[mv.to - 1].push(x);
-        }
-    }
-
-    crates.get_top_crates()
-}
-
-fn p2<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
-    let mut crates = crates.clone();
-    for mv in moves {
-        let source_crate = &mut crates.state[mv.from - 1];
-        let start_idx = source_crate.len() - mv.num;
-        let mut elems = source_crate.drain(start_idx..).collect::<Vec<_>>();
-
-        crates.state[mv.to - 1].append(&mut elems);
-    }
-
-    crates.get_top_crates()
 }
 
 const INPUT_PATH: &'static str = "../inputs/d05";
