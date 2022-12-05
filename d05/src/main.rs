@@ -5,6 +5,16 @@ struct Crates<const N: usize> {
     pub state: [Vec<char>; N],
 }
 
+impl<const N: usize> Crates<N> {
+    pub fn get_top_crates(&self) -> String {
+        let mut ans = String::new();
+        for cr in &self.state {
+            ans.push(*cr.last().unwrap());
+        }
+        ans
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Move {
     from: usize,
@@ -62,11 +72,7 @@ fn p1<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
         }
     }
 
-    let mut ans = String::new();
-    for cr in &crates.state {
-        ans.push(*cr.last().unwrap());
-    }
-    ans
+    crates.get_top_crates()
 }
 
 fn p2<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
@@ -79,11 +85,7 @@ fn p2<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
         crates.state[mv.to - 1].append(&mut elems);
     }
 
-    let mut ans = String::new();
-    for cr in &crates.state {
-        ans.push(*cr.last().unwrap());
-    }
-    ans
+    crates.get_top_crates()
 }
 
 const INPUT_PATH: &'static str = "../inputs/d05";
