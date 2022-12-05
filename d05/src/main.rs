@@ -1,6 +1,6 @@
 use std::fs;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Crates<const N: usize> {
     pub state: [Vec<char>; N],
 }
@@ -12,10 +12,33 @@ struct Move {
     num: usize,
 }
 
-fn parse_moves(raw_moves: String) -> Vec<Move> {
-    let mut moves = vec![];
+fn read_input<const N: usize>(path: &str) -> (Crates<N>, Vec<Move>) {
+    let content = fs::read_to_string(path).unwrap();
+    let mut lines = content.trim_end().split("\n");
+    let mut line = lines.next().unwrap();
 
-    for line in raw_moves.trim_end().split("\n") {
+    const EMPTY: Vec<char> = vec![];
+    let mut crates = Crates { state: [EMPTY; N] };
+    while !line.starts_with(" 1") {
+        let chars = line.chars().collect::<Vec<_>>();
+        for crate_id in 0..N {
+            if let Some(&ch) = chars.get(crate_id * 4 + 1) {
+                if ch != ' ' {
+                    crates.state[crate_id].push(ch);
+                }
+            }
+        }
+
+        line = lines.next().unwrap();
+    }
+
+    for crate_id in 0..N {
+        crates.state[crate_id].reverse();
+    }
+
+    lines.next();
+    let mut moves = vec![];
+    for line in lines {
         let mut it = line.split_ascii_whitespace();
         it.next();
         let num: usize = it.next().unwrap().parse().unwrap();
@@ -27,7 +50,7 @@ fn parse_moves(raw_moves: String) -> Vec<Move> {
         moves.push(Move { from, to, num });
     }
 
-    moves
+    (crates, moves)
 }
 
 fn p1<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
@@ -63,29 +86,10 @@ fn p2<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
     ans
 }
 
-fn get_task_input() -> (Crates<9>, Vec<Move>) {
-    let crates = Crates {
-        state: [
-            vec!['B', 'Q', 'C'],
-            vec!['R', 'Q', 'W', 'Z'],
-            vec!['B', 'M', 'R', 'L', 'V'],
-            vec!['C', 'Z', 'H', 'V', 'T', 'W'],
-            vec!['D', 'Z', 'H', 'B', 'N', 'V', 'G'],
-            vec!['H', 'N', 'P', 'C', 'J', 'F', 'V', 'Q'],
-            vec!['D', 'G', 'T', 'R', 'W', 'Z', 'S'],
-            vec!['C', 'G', 'M', 'N', 'B', 'W', 'Z', 'P'],
-            vec!['N', 'J', 'B', 'M', 'W', 'Q', 'F', 'P'],
-        ],
-    };
-
-    let moves = fs::read_to_string("../inputs/d05_edited").unwrap();
-
-    let moves = parse_moves(moves);
-    (crates, moves)
-}
+const INPUT_PATH: &'static str = "../inputs/d05";
 
 fn main() {
-    let (crates, moves) = get_task_input();
+    let (crates, moves) = read_input::<9>(INPUT_PATH);
     let p1_ans = p1(&crates, &moves);
     println!("P1: {p1_ans}.");
 
@@ -97,24 +101,15 @@ fn main() {
 mod tests {
     use super::*;
 
-    fn get_test_input() -> (Crates<3>, Vec<Move>) {
-        let crates = Crates {
-            state: [vec!['Z', 'N'], vec!['M', 'C', 'D'], vec!['P']],
-        };
-
-        let moves = "move 1 from 2 to 1
-move 3 from 1 to 3
-move 2 from 2 to 1
-move 1 from 1 to 2"
-            .to_string();
-
-        let moves = parse_moves(moves);
-        (crates, moves)
-    }
+    const TEST_PATH: &'static str = "../inputs/d05_test";
 
     #[test]
     fn test_input_parsing_test() {
-        let (_crates, moves) = get_test_input();
+        let (crates, moves) = read_input::<3>(TEST_PATH);
+
+        assert_eq!(crates.state[0], vec!['Z', 'N']);
+        assert_eq!(crates.state[1], vec!['M', 'C', 'D']);
+        assert_eq!(crates.state[2], vec!['P']);
 
         assert_eq!(moves.len(), 4);
         assert_eq!(
@@ -137,22 +132,22 @@ move 1 from 1 to 2"
 
     #[test]
     fn test_p1() {
-        let (crates, moves) = get_test_input();
+        let (crates, moves) = read_input::<3>(TEST_PATH);
         let test_ans = p1(&crates, &moves);
         assert_eq!(test_ans, "CMZ");
 
-        let (crates, moves) = get_task_input();
+        let (crates, moves) = read_input::<9>(INPUT_PATH);
         let ans = p1(&crates, &moves);
         assert_eq!(ans, "BWNCQRMDB");
     }
 
     #[test]
     fn test_p2() {
-        let (crates, moves) = get_test_input();
+        let (crates, moves) = read_input::<3>(TEST_PATH);
         let test_ans = p2(&crates, &moves);
         assert_eq!(test_ans, "MCD");
 
-        let (crates, moves) = get_task_input();
+        let (crates, moves) = read_input::<9>(INPUT_PATH);
         let ans = p2(&crates, &moves);
         assert_eq!(ans, "NHWZCBNBF");
     }
