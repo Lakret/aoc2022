@@ -30,9 +30,8 @@ fn parse_moves(raw_moves: String) -> Vec<Move> {
     moves
 }
 
-fn do_move<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> Crates<N> {
+fn p1<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
     let mut crates = crates.clone();
-
     for mv in moves {
         for _ in 0..mv.num {
             let x = crates.state[mv.from - 1].pop().unwrap();
@@ -40,43 +39,27 @@ fn do_move<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> Crates<N> {
         }
     }
 
-    crates
-}
-
-fn p1<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
-    let new_crates = do_move(crates, moves);
-
     let mut ans = String::new();
-    for cr in &new_crates.state {
+    for cr in &crates.state {
         ans.push(*cr.last().unwrap());
     }
-
     ans
 }
 
-fn do_move2<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> Crates<N> {
+fn p2<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
     let mut crates = crates.clone();
-
     for mv in moves {
-        let mut source_crate = &mut crates.state[mv.from - 1];
-        // TODO: maybe -1 is needed
+        let source_crate = &mut crates.state[mv.from - 1];
         let start_idx = source_crate.len() - mv.num;
         let mut elems = source_crate.drain(start_idx..).collect::<Vec<_>>();
 
         crates.state[mv.to - 1].append(&mut elems);
     }
 
-    crates
-}
-
-fn p2<const N: usize>(crates: &Crates<N>, moves: &Vec<Move>) -> String {
-    let new_crates = do_move2(crates, moves);
-
     let mut ans = String::new();
-    for cr in &new_crates.state {
+    for cr in &crates.state {
         ans.push(*cr.last().unwrap());
     }
-
     ans
 }
 
@@ -102,7 +85,6 @@ fn get_task_input() -> (Crates<9>, Vec<Move>) {
 }
 
 fn main() {
-    // BWNCQRMDB
     let (crates, moves) = get_task_input();
     let p1_ans = p1(&crates, &moves);
     println!("P1: {p1_ans}.");
@@ -158,6 +140,10 @@ move 1 from 1 to 2"
         let (crates, moves) = get_test_input();
         let test_ans = p1(&crates, &moves);
         assert_eq!(test_ans, "CMZ");
+
+        let (crates, moves) = get_task_input();
+        let ans = p1(&crates, &moves);
+        assert_eq!(ans, "BWNCQRMDB");
     }
 
     #[test]
@@ -165,5 +151,9 @@ move 1 from 1 to 2"
         let (crates, moves) = get_test_input();
         let test_ans = p2(&crates, &moves);
         assert_eq!(test_ans, "MCD");
+
+        let (crates, moves) = get_task_input();
+        let ans = p2(&crates, &moves);
+        assert_eq!(ans, "NHWZCBNBF");
     }
 }
