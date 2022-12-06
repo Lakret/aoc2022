@@ -1,0 +1,44 @@
+# Day 06
+
+## Inputs
+
+```elixir
+input = File.read!("inputs/d06") |> String.trim()
+```
+
+```elixir
+test_input = "mjqjpqmgbljsphdztnvjfqwrcgsmlb"
+```
+
+## Part 1
+
+```elixir
+solve = fn input, distinct ->
+  {_chars, first_pos} =
+    input
+    |> String.graphemes()
+    |> Stream.chunk_every(distinct, 1, :discard)
+    |> Stream.with_index(1)
+    |> Stream.filter(fn {chunk, _start_idx} ->
+      MapSet.new(chunk) |> MapSet.size() == distinct
+    end)
+    |> Enum.take(1)
+    |> hd()
+
+  first_pos + distinct - 1
+end
+```
+
+```elixir
+solve.(input, 4)
+```
+
+## Part 2
+
+```elixir
+solve.(test_input, 14)
+```
+
+```elixir
+solve.(input, 14)
+```
