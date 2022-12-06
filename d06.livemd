@@ -1,44 +1,48 @@
 # Day 06
 
-## Inputs
+## Solution
 
 ```elixir
-input = File.read!("inputs/d06") |> String.trim()
-```
+defmodule D06 do
+  def solve(input, distinct) do
+    {_chars, first_pos} =
+      input
+      |> String.graphemes()
+      |> Stream.chunk_every(distinct, 1, :discard)
+      |> Stream.with_index(1)
+      |> Stream.filter(fn {chunk, _start_idx} ->
+        MapSet.new(chunk) |> MapSet.size() == distinct
+      end)
+      |> Enum.take(1)
+      |> hd()
 
-```elixir
-test_input = "mjqjpqmgbljsphdztnvjfqwrcgsmlb"
-```
-
-## Part 1
-
-```elixir
-solve = fn input, distinct ->
-  {_chars, first_pos} =
-    input
-    |> String.graphemes()
-    |> Stream.chunk_every(distinct, 1, :discard)
-    |> Stream.with_index(1)
-    |> Stream.filter(fn {chunk, _start_idx} ->
-      MapSet.new(chunk) |> MapSet.size() == distinct
-    end)
-    |> Enum.take(1)
-    |> hd()
-
-  first_pos + distinct - 1
+    first_pos + distinct - 1
+  end
 end
 ```
 
-```elixir
-solve.(input, 4)
-```
-
-## Part 2
+## Tests
 
 ```elixir
-solve.(test_input, 14)
-```
+ExUnit.start(autorun: false)
 
-```elixir
-solve.(input, 14)
+defmodule MyTest do
+  use ExUnit.Case, async: true
+
+  def get_input() do
+    File.read!("inputs/d06") |> String.trim()
+  end
+
+  test "p1" do
+    assert D06.solve("mjqjpqmgbljsphdztnvjfqwrcgsmlb", 4) == 7
+    assert get_input() |> D06.solve(4) == 1538
+  end
+
+  test "p2" do
+    assert D06.solve("mjqjpqmgbljsphdztnvjfqwrcgsmlb", 14) == 19
+    assert get_input() |> D06.solve(14) == 2315
+  end
+end
+
+ExUnit.run()
 ```
