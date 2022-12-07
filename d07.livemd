@@ -26,15 +26,7 @@ defmodule D07 do
         {dir_sizes, path},
         fn dir_name, {dir_sizes, [dir_name | rest] = full_path} ->
           full_dir_name = Enum.reverse(full_path) |> Enum.join("/") |> String.replace("//", "/")
-
-          dir_sizes =
-            Map.update(
-              dir_sizes,
-              full_dir_name,
-              file_size,
-              fn prev_dir_size -> prev_dir_size + file_size end
-            )
-
+          dir_sizes = Map.update(dir_sizes, full_dir_name, file_size, &(&1 + file_size))
           {dir_sizes, rest}
         end
       )
