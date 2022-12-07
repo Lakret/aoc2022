@@ -4,9 +4,7 @@
 
 ```elixir
 defmodule D07 do
-  def parse_input(input) do
-    Enum.reduce(input, {%{}, [], nil}, &parse_line/2) |> elem(0)
-  end
+  def parse_input(input), do: Enum.reduce(input, {%{}, [], nil}, &parse_line/2) |> elem(0)
 
   def parse_line("$ cd ..", {dir_sizes, [_curr_dir | path], _state}), do: {dir_sizes, path, nil}
   def parse_line("$ ls", {dir_sizes, path, nil}), do: {dir_sizes, path, :ls}
