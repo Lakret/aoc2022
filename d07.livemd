@@ -1,41 +1,6 @@
 # Day 07
 
-## Parsing Input
-
-```elixir
-input = File.read!("inputs/d07") |> String.trim_trailing() |> String.split("\n")
-```
-
-```elixir
-test_input =
-  """
-  $ cd /
-  $ ls
-  dir a
-  14848514 b.txt
-  8504156 c.dat
-  dir d
-  $ cd a
-  $ ls
-  dir e
-  29116 f
-  2557 g
-  62596 h.lst
-  $ cd e
-  $ ls
-  584 i
-  $ cd ..
-  $ cd ..
-  $ cd d
-  $ ls
-  4060174 j
-  8033020 d.log
-  5626152 d.ext
-  7214296 k
-  """
-  |> String.trim_trailing()
-  |> String.split("\n")
-```
+## Solution
 
 ```elixir
 defmodule D07 do
@@ -60,7 +25,6 @@ defmodule D07 do
     {dir_sizes, [target_dir | path], nil}
   end
 
-  # TODO: should we skip here?
   def parse_line(<<"dir "::binary, _dir_name::binary>>, {dir_sizes, path, :ls}) do
     {dir_sizes, path, :ls}
   end
@@ -69,13 +33,16 @@ defmodule D07 do
     [file_size, _filename] = String.split(file_size_and_name)
     {file_size, ""} = Integer.parse(file_size)
 
-    # ["a", "b", "/"] => "/b/a"
     {dir_sizes, []} =
       Enum.reduce(
         path,
         {dir_sizes, path},
         fn dir_name, {dir_sizes, [dir_name | rest] = full_path} ->
-          full_dir_name = full_path |> Enum.reverse() |> Enum.join("|")
+          full_dir_name =
+            full_path
+            |> Enum.reverse()
+            |> Enum.join("/")
+            |> String.replace("//", "/")
 
           dir_sizes =
             Map.update(
@@ -93,9 +60,8 @@ defmodule D07 do
   end
 
   def p1(dir_sizes) when is_map(dir_sizes) do
-    Enum.map(dir_sizes, fn {_dir_name, size} ->
-      if size <= @p1_limit, do: size, else: 0
-    end)
+    dir_sizes
+    |> Enum.map(fn {_dir_name, size} -> if size <= @p1_limit, do: size, else: 0 end)
     |> Enum.sum()
   end
 
@@ -112,50 +78,46 @@ defmodule D07 do
 end
 ```
 
-```elixir
-dir_sizes = D07.parse_input(test_input)
-```
+## Tests
 
 ```elixir
-need_to_free = D07.p2(dir_sizes)
-```
+ExUnit.start(autorun: false)
 
-```elixir
-D07.p2(dir_sizes)
-```
+defmodule D07Tests do
+  use ExUnit.Case, async: true
 
-```elixir
-# 95437
-dir_sizes |> D07.p1()
-```
+  def get_test_input() do
+    File.read!("inputs/d07_test") |> String.trim_trailing() |> String.split("\n")
+  end
 
-```elixir
-# 1447046 is right
-D07.parse_input(input) |> D07.p1()
-```
+  def get_input() do
+    File.read!("inputs/d07") |> String.trim_trailing() |> String.split("\n")
+  end
 
-```elixir
-D07.parse_input(input) |> D07.p2()
-```
+  test "p1" do
+    test_dir_sizes = get_test_input() |> D07.parse_input()
 
-```elixir
-# 170
-input
-|> Enum.filter(fn x -> String.starts_with?(x, "dir") end)
-|> MapSet.new()
-|> MapSet.size()
-```
+    assert test_dir_sizes == %{
+             "/" => 48_381_165,
+             "/a" => 94853,
+             "/a/e" => 584,
+             "/d" => 24_933_642
+           }
 
-```elixir
-# %{"dir_name" => size1, "dir_name2" => size2, ...}
+    assert D07.p1(test_dir_sizes) == 95437
 
-# {
-#   {:dir, "/"},
-#   [
-#     {{:dir, "a"}, [...]},
-#     {{:dir, "b"}, [...]},
-#     {:file, "yo", 1212898},
-#     ...
-#   ]
-# }
+    dir_sizes = get_input() |> D07.parse_input()
+    assert D07.p1(dir_sizes) == 1_447_046
+  end
+
+  test "p2" do
+    test_dir_sizes = get_test_input() |> D07.parse_input()
+    assert D07.p2(test_dir_sizes) == 24_933_642
+
+    dir_sizes = get_input() |> D07.parse_input()
+    assert D07.p2(dir_sizes) == 578_710
+  end
+end
+
+ExUnit.run()
 ```
