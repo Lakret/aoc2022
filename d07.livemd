@@ -4,45 +4,28 @@
 
 ```elixir
 defmodule D07 do
-  @p1_limit 100_000
-  @total_disk_space 70_000_000
-  @required_free_space 30_000_000
-
   def parse_input(input) do
-    {dir_sizes, _path, _state} = Enum.reduce(input, {%{}, [], nil}, &parse_line/2)
-    dir_sizes
+    Enum.reduce(input, {%{}, [], nil}, &parse_line/2) |> elem(0)
   end
 
-  def parse_line("$ cd ..", {dir_sizes, [_curr_dir | path], _state}) do
-    {dir_sizes, path, nil}
-  end
+  def parse_line("$ cd ..", {dir_sizes, [_curr_dir | path], _state}), do: {dir_sizes, path, nil}
+  def parse_line("$ ls", {dir_sizes, path, nil}), do: {dir_sizes, path, :ls}
 
-  def parse_line("$ ls", {dir_sizes, path, nil}) do
-    {dir_sizes, path, :ls}
-  end
+  def parse_line(<<"$ cd "::binary, target_dir::binary>>, {dir_sizes, path, _state}),
+    do: {dir_sizes, [target_dir | path], nil}
 
-  def parse_line(<<"$ cd "::binary, target_dir::binary>>, {dir_sizes, path, _state}) do
-    {dir_sizes, [target_dir | path], nil}
-  end
-
-  def parse_line(<<"dir "::binary, _dir_name::binary>>, {dir_sizes, path, :ls}) do
-    {dir_sizes, path, :ls}
-  end
+  def parse_line(<<"dir "::binary, _dir_name::binary>>, {dir_sizes, path, :ls}),
+    do: {dir_sizes, path, :ls}
 
   def parse_line(file_size_and_name, {dir_sizes, path, :ls}) do
-    [file_size, _filename] = String.split(file_size_and_name)
-    {file_size, ""} = Integer.parse(file_size)
+    {file_size, ""} = String.split(file_size_and_name) |> hd() |> Integer.parse()
 
     {dir_sizes, []} =
       Enum.reduce(
         path,
         {dir_sizes, path},
         fn dir_name, {dir_sizes, [dir_name | rest] = full_path} ->
-          full_dir_name =
-            full_path
-            |> Enum.reverse()
-            |> Enum.join("/")
-            |> String.replace("//", "/")
+          full_dir_name = Enum.reverse(full_path) |> Enum.join("/") |> String.replace("//", "/")
 
           dir_sizes =
             Map.update(
@@ -59,11 +42,16 @@ defmodule D07 do
     {dir_sizes, path, :ls}
   end
 
+  @p1_limit 100_000
+
   def p1(dir_sizes) when is_map(dir_sizes) do
     dir_sizes
     |> Enum.map(fn {_dir_name, size} -> if size <= @p1_limit, do: size, else: 0 end)
     |> Enum.sum()
   end
+
+  @total_disk_space 70_000_000
+  @required_free_space 30_000_000
 
   def p2(dir_sizes) when is_map(dir_sizes) do
     curr_free_space = @total_disk_space - dir_sizes["/"]
