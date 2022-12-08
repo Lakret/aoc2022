@@ -2,6 +2,7 @@ using Pipe
 
 parse_input(input) = @pipe input |> chomp |> split .|> collect |> mapreduce(permutedims, vcat, _) |> parse.(Int32, _)
 
+
 function get_ltor_visibility(input::Matrix{Int32})::BitMatrix
     (row_max, col_max) = size(input)
     visibility_mask = falses(row_max, col_max)
@@ -30,6 +31,7 @@ function get_visiblity_mask(input::Matrix{Int32})::BitMatrix
 end
 
 p1(input::Matrix{Int32})::Int32 = input |> get_visiblity_mask |> sum
+
 
 function p2(input::Matrix{Int32})
     max_score = 0
@@ -75,6 +77,7 @@ function p2(input::Matrix{Int32})
     max_score
 end
 
+
 input = read("inputs/d08", String) |> parse_input
 test_input = """
              30373
@@ -86,5 +89,6 @@ test_input = """
 
 @assert p1(test_input) == 21
 @assert @show p1(input) == 1690
+
 @assert p2(test_input) == 8
 @assert @show p2(input) == 535680
