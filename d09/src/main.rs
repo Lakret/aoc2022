@@ -15,6 +15,67 @@ struct Instruction {
     steps: u8,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+struct Coords {
+    x: i32,
+    y: i32,
+}
+
+impl Default for Coords {
+    fn default() -> Self {
+        Self { x: 0, y: 0 }
+    }
+}
+
+impl Coords {
+    fn is_adjacent(self, another: Coords) -> bool {
+        (self == another) || (((self.x - another.x).abs() <= 1) && ((self.y - another.y).abs() <= 1))
+    }
+
+    fn move_in_direction(self, direction: Direction) -> Coords {
+        let (x, y) = match direction {
+            Direction::Right => (self.x + 1, self.y),
+            Direction::Left => (self.x - 1, self.y),
+            Direction::Up => (self.x, self.y + 1),
+            Direction::Down => (self.x, self.y - 1),
+        };
+
+        Coords { x, y }
+    }
+
+    fn follow(self, target: Coords) -> Coords {
+        let possible_new_x = if (self.x - target.x).abs() >= 1 {
+            if target.x > self.x {
+                self.x + 1
+            } else {
+                self.x - 1
+            }
+        } else {
+            self.x
+        };
+
+        let possible_new_y = if (self.y - target.y).abs() >= 1 {
+            if target.y > self.y {
+                self.y + 1
+            } else {
+                self.y - 1
+            }
+        } else {
+            self.y
+        };
+
+        if possible_new_x != self.x && possible_new_y != self.y {
+            Coords { x: possible_new_x, y: possible_new_y }
+        } else if target.is_adjacent(Coords { x: possible_new_x, y: self.y }) {
+            Coords { x: possible_new_x, y: self.y }
+        } else if target.is_adjacent(Coords { x: self.x, y: possible_new_y }) {
+            Coords { x: self.x, y: possible_new_y }
+        } else {
+            Coords { x: possible_new_x, y: possible_new_y }
+        }
+    }
+}
+
 fn parse_input(path: &str) -> Vec<Instruction> {
     let mut directions = vec![];
     for line in fs::read_to_string(path).unwrap().trim_end().split("\n") {
@@ -32,63 +93,17 @@ fn parse_input(path: &str) -> Vec<Instruction> {
     directions
 }
 
-fn is_adjacent(head_pos: (i32, i32), tail_pos: (i32, i32)) -> bool {
-    (head_pos == tail_pos)
-        || (((head_pos.0 - tail_pos.0).abs() <= 1) && ((head_pos.1 - tail_pos.1).abs() <= 1))
-}
-
-fn move_in_direction(pos: (i32, i32), direction: Direction) -> (i32, i32) {
-    match direction {
-        Direction::Right => (pos.0 + 1, pos.1),
-        Direction::Left => (pos.0 - 1, pos.1),
-        Direction::Up => (pos.0, pos.1 + 1),
-        Direction::Down => (pos.0, pos.1 - 1),
-    }
-}
-
-fn move_tail(tail_pos: (i32, i32), head_pos: (i32, i32)) -> (i32, i32) {
-    let possible_new_x = if (tail_pos.0 - head_pos.0).abs() >= 1 {
-        if head_pos.0 > tail_pos.0 {
-            tail_pos.0 + 1
-        } else {
-            tail_pos.0 - 1
-        }
-    } else {
-        tail_pos.0
-    };
-
-    let possible_new_y = if (tail_pos.1 - head_pos.1).abs() >= 1 {
-        if head_pos.1 > tail_pos.1 {
-            tail_pos.1 + 1
-        } else {
-            tail_pos.1 - 1
-        }
-    } else {
-        tail_pos.1
-    };
-
-    if possible_new_x != tail_pos.0 && possible_new_y != tail_pos.1 {
-        (possible_new_x, possible_new_y)
-    } else if is_adjacent(head_pos, (possible_new_x, tail_pos.1)) {
-        (possible_new_x, tail_pos.1)
-    } else if is_adjacent(head_pos, (tail_pos.0, possible_new_y)) {
-        (tail_pos.0, possible_new_y)
-    } else {
-        (possible_new_x, possible_new_y)
-    }
-}
-
 fn p1(instructions: &Vec<Instruction>) -> usize {
-    let mut head_pos = (0, 0);
-    let mut tail_pos = (0, 0);
-    let mut tail_visited: HashSet<(i32, i32)> = HashSet::new();
+    let mut head_pos = Coords::default();
+    let mut tail_pos = Coords::default();
+    let mut tail_visited: HashSet<Coords> = HashSet::new();
     tail_visited.insert(tail_pos);
 
     for &Instruction { direction, steps } in instructions {
         for _ in 0..steps {
-            head_pos = move_in_direction(head_pos, direction);
-            if !is_adjacent(head_pos, tail_pos) {
-                tail_pos = move_tail(tail_pos, head_pos);
+            head_pos = head_pos.move_in_direction(direction);
+            if !head_pos.is_adjacent(tail_pos) {
+                tail_pos = tail_pos.follow(head_pos);
                 tail_visited.insert(tail_pos);
             }
         }
@@ -98,17 +113,17 @@ fn p1(instructions: &Vec<Instruction>) -> usize {
 }
 
 fn p2(instructions: &Vec<Instruction>) -> usize {
-    let mut positions = vec![(0, 0); 10];
-    let mut tail_visited: HashSet<(i32, i32)> = HashSet::new();
+    let mut positions = vec![Coords::default(); 10];
+    let mut tail_visited: HashSet<Coords> = HashSet::new();
     tail_visited.insert(positions[9]);
 
     for &Instruction { direction, steps } in instructions {
         for _ in 0..steps {
-            positions[0] = move_in_direction(positions[0], direction);
+            positions[0] = positions[0].move_in_direction(direction);
 
             for knot_idx in 1..10 {
-                if !is_adjacent(positions[knot_idx - 1], positions[knot_idx]) {
-                    positions[knot_idx] = move_tail(positions[knot_idx], positions[knot_idx - 1]);
+                if !positions[knot_idx - 1].is_adjacent(positions[knot_idx]) {
+                    positions[knot_idx] = positions[knot_idx].follow(positions[knot_idx - 1]);
                     if knot_idx == 9 {
                         tail_visited.insert(positions[knot_idx]);
                     }
@@ -137,13 +152,7 @@ mod tests {
     fn test_parsing() {
         let test_instructions = parse_input("../inputs/d09_test");
         assert_eq!(test_instructions.len(), 8);
-        assert_eq!(
-            test_instructions[0],
-            Instruction {
-                steps: 4,
-                direction: Direction::Right
-            }
-        );
+        assert_eq!(test_instructions[0], Instruction { steps: 4, direction: Direction::Right });
 
         let instructions = parse_input("../inputs/d09");
         assert_eq!(instructions.len(), 2000);
@@ -151,31 +160,32 @@ mod tests {
 
     #[test]
     fn test_is_adjacent() {
-        assert_eq!(is_adjacent((2, 1), (1, 1)), true);
-        assert_eq!(is_adjacent((2, 1), (2, 1)), true);
-        assert_eq!(is_adjacent((1, 2), (2, 1)), true);
-        assert_eq!(is_adjacent((2, 1), (1, 1)), true);
+        assert_eq!(Coords { x: 2, y: 1 }.is_adjacent(Coords { x: 1, y: 1 }), true);
+        assert_eq!(Coords { x: 2, y: 1 }.is_adjacent(Coords { x: 2, y: 1 }), true);
+        assert_eq!(Coords { x: 1, y: 2 }.is_adjacent(Coords { x: 2, y: 1 }), true);
+        assert_eq!(Coords { x: 2, y: 1 }.is_adjacent(Coords { x: 1, y: 1 }), true);
 
-        assert_eq!(is_adjacent((2, 1), (1, 3)), false);
+        assert_eq!(Coords { x: 2, y: 1 }.is_adjacent(Coords { x: 1, y: 3 }), false);
     }
 
     #[test]
     fn test_move_in_direction() {
-        assert_eq!(move_in_direction((0, 0), Direction::Up), (0, 1));
-        assert_eq!(move_in_direction((0, 0), Direction::Down), (0, -1));
-        assert_eq!(move_in_direction((0, 0), Direction::Left), (-1, 0));
-        assert_eq!(move_in_direction((0, 0), Direction::Right), (1, 0));
+        let zero = Coords::default();
+        assert_eq!(zero.move_in_direction(Direction::Up), Coords { x: 0, y: 1 });
+        assert_eq!(zero.move_in_direction(Direction::Down), Coords { x: 0, y: -1 });
+        assert_eq!(zero.move_in_direction(Direction::Left), Coords { x: -1, y: 0 });
+        assert_eq!(zero.move_in_direction(Direction::Right), Coords { x: 1, y: 0 });
     }
 
     #[test]
     fn test_move_tail() {
-        assert_eq!(move_tail((1, 1), (2, 3)), (2, 2));
-        assert_eq!(move_tail((1, 1), (3, 2)), (2, 2));
+        assert_eq!(Coords { x: 1, y: 1 }.follow(Coords { x: 2, y: 3 }), Coords { x: 2, y: 2 });
+        assert_eq!(Coords { x: 1, y: 1 }.follow(Coords { x: 3, y: 2 }), Coords { x: 2, y: 2 });
 
-        assert_eq!(move_tail((1, 1), (3, 1)), (2, 1));
-        assert_eq!(move_tail((1, 3), (1, 1)), (1, 2));
+        assert_eq!(Coords { x: 1, y: 1 }.follow(Coords { x: 3, y: 1 }), Coords { x: 2, y: 1 });
+        assert_eq!(Coords { x: 1, y: 3 }.follow(Coords { x: 1, y: 1 }), Coords { x: 1, y: 2 });
 
-        assert_eq!(move_tail((1, 0), (3, 0)), (2, 0));
+        assert_eq!(Coords { x: 1, y: 0 }.follow(Coords { x: 3, y: 0 }), Coords { x: 2, y: 0 });
     }
 
     #[test]
