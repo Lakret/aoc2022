@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "d05",
+    "d09"
+]
