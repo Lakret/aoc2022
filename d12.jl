@@ -45,19 +45,15 @@ function connected_neighbours(grid::Matrix{Char}, idx::CartesianIndex; inverted:
 end
 
 """
-Returns (
-    previous_nodes,
-    final_distances,
-    dest_char_coords,
-    dest_char_cost,
-    best_signal_coords,
-    best_signal_so_far,
-    best_signal_distance
-).
+Returns a tuple of:
+
+    - `previous_nodes` - a dictionary mapping each reachable vertex's coords
+    to it's predecessor's coords on the shortest path from `start_char`.
+    - `dest_char_pos` - the coords of the `dest_char` or `missing` if it's not reachable
+    - `dest_char_distance` - the distance to the `dest_char` from `start_char`
 """
 function dijkstra(grid::Matrix{Char}; start_char::Char='S', dest_char::Char='E', inverted::Bool=false)::Tuple{
     Dict{CartesianIndex,CartesianIndex},
-    Dict{CartesianIndex,Int},
     Union{CartesianIndex,Missing},
     Union{Int,Missing}
 }
@@ -68,20 +64,10 @@ function dijkstra(grid::Matrix{Char}; start_char::Char='S', dest_char::Char='E',
     distances = PriorityQueue(distances)
     distances[start_idx] = 0
 
-    final_distances = Dict(start_idx => 0)
     previous_nodes = Dict()
 
     while !isempty(unvisited)
-        if isempty(distances)
-            println("used it")
-            distances = PriorityQueue([k => v for (k, v) = collect(final_distances) if (k in unvisited) && v != Inf])
-        end
-
         (curr_idx, cost) = dequeue_pair!(distances)
-        while !(curr_idx in unvisited)
-            distances[curr_idx] = cost
-            (curr_idx, cost) = dequeue_pair!(distances)
-        end
         @assert curr_idx in unvisited
         @assert cost != Inf
 
@@ -90,10 +76,9 @@ function dijkstra(grid::Matrix{Char}; start_char::Char='S', dest_char::Char='E',
                 if distances[neighbour_idx] > (cost + 1)
                     distances[neighbour_idx] = cost + 1
                     previous_nodes[neighbour_idx] = curr_idx
-                    final_distances[neighbour_idx] = cost + 1
 
                     if grid[neighbour_idx] == dest_char
-                        return previous_nodes, final_distances, neighbour_idx, cost + 1
+                        return previous_nodes, neighbour_idx, cost + 1
                     end
                 end
             end
@@ -102,16 +87,23 @@ function dijkstra(grid::Matrix{Char}; start_char::Char='S', dest_char::Char='E',
         delete!(unvisited, curr_idx)
     end
 
-    previous_nodes, final_distances, missing, missing
+    previous_nodes, missing, missing
 end
 
+function visualize_paths(
+    grid::Matrix{Char},
+    previous_nodes::Dict{CartesianIndex,CartesianIndex},
+    start_char::Char
+)
+    start_coords = findall(x -> x == start_char, grid) |> first
 
-function visualize_paths(grid::Matrix{Char}, previous_nodes::Dict{CartesianIndex,CartesianIndex})
     for row_id = 1:size(grid)[1]
         for col_id = 1:size(grid)[2]
             idx = CartesianIndex(row_id, col_id)
             if haskey(previous_nodes, idx)
                 print(grid[idx])
+            elseif idx == start_coords
+                print("🏃")
             else
                 print(".")
             end
@@ -123,24 +115,30 @@ end
 test_grid = parse_input("inputs/d12_test")
 grid = parse_input("inputs/d12")
 
-previous_nodes, final_distances, dest_coords, dest_cost = dijkstra(test_grid)
+previous_nodes, dest_coords, dest_cost = dijkstra(test_grid)
 @assert dest_coords == CartesianIndex(3, 6)
 @assert dest_cost == 31
 @assert test_grid[dest_coords] == 'E'
 
-previous_nodes, final_distances, dest_coords, dest_cost = dijkstra(grid)
+previous_nodes, dest_coords, dest_cost = dijkstra(grid)
 @assert dest_coords == CartesianIndex(21, 59)
 @assert dest_cost == 408
 @assert grid[dest_coords] == 'E'
 
-previous_nodes, final_distances, dest_coords, dest_cost = dijkstra(
-    test_grid, start_char='E', dest_char='a', inverted=true
-)
+println("P1 ans: $dest_cost.")
+visualize_paths(grid, previous_nodes, 'S')
+println()
+
+previous_nodes, dest_coords, dest_cost = dijkstra(test_grid, start_char='E', dest_char='a', inverted=true)
 @assert dest_cost == 29
 @assert dest_coords == CartesianIndex(5, 1)
 @assert grid[dest_coords] == 'a'
 
-previous_nodes, final_distances, dest_coords, dest_cost = dijkstra(grid, start_char='E', dest_char='a', inverted=true)
+previous_nodes, dest_coords, dest_cost = dijkstra(grid, start_char='E', dest_char='a', inverted=true)
 @assert dest_cost == 399
 @assert dest_coords == CartesianIndex(34, 1)
 @assert grid[dest_coords] == 'a'
+
+println("P2 ans: $dest_cost.")
+visualize_paths(grid, previous_nodes, 'E')
+println()
