@@ -39,12 +39,14 @@ pub struct Monkey {
 pub struct State {
     monkeys: Vec<Monkey>,
     stats: Vec<u64>,
+    lcm: u64,
 }
 
 impl State {
     pub fn new(monkeys: Vec<Monkey>) -> State {
         let stats = vec![0; monkeys.len()];
-        State { monkeys, stats }
+        let lcm = monkeys.iter().map(|m| m.test_divisible_by).product();
+        State { monkeys, stats, lcm }
     }
 
     pub fn inventory(&self, monkey_id: usize) -> &VecDeque<u64> {
@@ -72,13 +74,11 @@ impl State {
     }
 
     fn inspect(&mut self, monkey_id: usize, divide_by_three: bool) -> bool {
-        let lcm = self.lcm();
-
         let monkey = &mut self.monkeys[monkey_id];
         if let Some(worry_level) = monkey.inventory.pop_front() {
             let worry_level = monkey.op.eval(worry_level);
             let worry_level =
-                if divide_by_three { (worry_level as f64 / 3.0).floor() as u64 } else { worry_level % lcm };
+                if divide_by_three { (worry_level as f64 / 3.0).floor() as u64 } else { worry_level % self.lcm };
 
             let throw_to = if (&worry_level % monkey.test_divisible_by) == 0 {
                 monkey.true_throw_destination
@@ -92,10 +92,6 @@ impl State {
         } else {
             false
         }
-    }
-
-    fn lcm(&self) -> u64 {
-        self.monkeys.iter().map(|m| m.test_divisible_by).product()
     }
 }
 
