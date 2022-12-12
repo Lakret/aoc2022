@@ -1,7 +1,6 @@
 using Pipe
 using DataStructures
 
-
 parse_input(path)::Matrix{Char} =
     @pipe read(path, String) |> chomp |> split .|> collect |> mapreduce(permutedims, vcat, _)
 
@@ -16,7 +15,7 @@ function normalize_char(char::Char)::Char
 end
 
 # note: we should allow going to at max 1 higher elevations, BUT we may drop from any elevation!
-function connected_neighbours(grid::Matrix{Char}, idx::CartesianIndex)::Vector{CartesianIndex}
+function connected_neighbours(grid::Matrix{Char}, idx::CartesianIndex; inverted::Bool=false)::Vector{CartesianIndex}
     curr_char = normalize_char(grid[idx])
     neighbours = []
 
@@ -24,7 +23,8 @@ function connected_neighbours(grid::Matrix{Char}, idx::CartesianIndex)::Vector{C
         new_x = idx[1] + x
         if new_x >= 1 && new_x <= size(grid)[1]
             neighbour_idx = CartesianIndex(new_x, idx[2])
-            if normalize_char(grid[neighbour_idx]) - curr_char <= 1
+            neighbour_char = normalize_char(grid[neighbour_idx])
+            if (!inverted && (neighbour_char - curr_char <= 1)) || (inverted && (curr_char - neighbour_char <= 1))
                 push!(neighbours, neighbour_idx)
             end
         end
@@ -34,7 +34,8 @@ function connected_neighbours(grid::Matrix{Char}, idx::CartesianIndex)::Vector{C
         new_y = idx[2] + y
         if new_y >= 1 && new_y <= size(grid)[2]
             neighbour_idx = CartesianIndex(idx[1], new_y)
-            if normalize_char(grid[neighbour_idx]) - curr_char <= 1
+            neighbour_char = normalize_char(grid[neighbour_idx])
+            if (!inverted && (neighbour_char - curr_char <= 1)) || (inverted && (curr_char - neighbour_char <= 1))
                 push!(neighbours, neighbour_idx)
             end
         end
@@ -43,7 +44,18 @@ function connected_neighbours(grid::Matrix{Char}, idx::CartesianIndex)::Vector{C
     neighbours
 end
 
-function dijkstra(grid::Matrix{Char})::Tuple{
+"""
+Returns (
+    previous_nodes,
+    final_distances,
+    dest_char_coords,
+    dest_char_cost,
+    best_signal_coords,
+    best_signal_so_far,
+    best_signal_distance
+).
+"""
+function dijkstra(grid::Matrix{Char}; start_char::Char='S', dest_char::Char='E', inverted::Bool=false)::Tuple{
     Dict{CartesianIndex,CartesianIndex},
     Dict{CartesianIndex,Int},
     Union{CartesianIndex,Missing},
@@ -53,7 +65,7 @@ function dijkstra(grid::Matrix{Char})::Tuple{
     Int
 }
     unvisited = Set([CartesianIndices(grid)...])
-    start_idx = findall(x -> x == 'S', grid) |> first
+    start_idx = findall(x -> x == start_char, grid) |> first
 
     distances = @pipe collect(unvisited) |> map(x -> x => Inf, _)
     distances = PriorityQueue(distances)
@@ -75,12 +87,9 @@ function dijkstra(grid::Matrix{Char})::Tuple{
             (curr_idx, cost) = dequeue_pair!(distances)
         end
         @assert curr_idx in unvisited
+        @assert cost != Inf
 
-        if cost == Inf
-            return previous_nodes, final_distances, missing, missing, best_signal_coords, best_signal_so_far, best_signal_distance
-        end
-
-        for neighbour_idx = connected_neighbours(grid, curr_idx)
+        for neighbour_idx = connected_neighbours(grid, curr_idx, inverted=inverted)
             if neighbour_idx in unvisited
                 if distances[neighbour_idx] > (cost + 1)
                     distances[neighbour_idx] = cost + 1
@@ -93,7 +102,7 @@ function dijkstra(grid::Matrix{Char})::Tuple{
                         best_signal_distance = cost + 1
                     end
 
-                    if grid[neighbour_idx] == 'E'
+                    if grid[neighbour_idx] == dest_char
                         return previous_nodes, final_distances, neighbour_idx, cost + 1, neighbour_idx, 'E', cost + 1
                     end
                 end
@@ -168,6 +177,20 @@ previous_nodes, final_distances, e_coords, e_cost, best_signal_coords, best_sign
 @assert best_signal_coords == e_coords
 @assert best_signal_so_far == 'E'
 @assert best_signal_distance == e_cost
+
+
+previous_nodes, final_distances, dest_coords, dest_cost, best_signal_coords, best_signal_so_far, best_signal_distance =
+    dijkstra(test_grid, start_char='E', dest_char='a', inverted=true)
+@assert dest_cost == 29
+@assert dest_coords == CartesianIndex(5, 1)
+
+previous_nodes, final_distances, dest_coords, dest_cost, best_signal_coords, best_signal_so_far, best_signal_distance =
+    dijkstra(grid, start_char='E', dest_char='a', inverted=true)
+@assert dest_cost == 399
+@assert dest_coords == CartesianIndex(34, 1)
+@assert grid[dest_coords] == 'a'
+
+
 
 # visualize_paths(grid, previous_nodes)
 # visualize_paths(grid, previous_nodes)
