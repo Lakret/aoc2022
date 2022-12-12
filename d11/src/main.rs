@@ -77,6 +77,7 @@ impl State {
         let monkey = &mut self.monkeys[monkey_id];
         if let Some(worry_level) = monkey.inventory.pop_front() {
             let worry_level = monkey.op.eval(worry_level);
+            // see https://en.wikipedia.org/wiki/Chinese_remainder_theorem for part 2
             let worry_level =
                 if divide_by_three { (worry_level as f64 / 3.0).floor() as u64 } else { worry_level % self.lcm };
 
@@ -95,65 +96,31 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ExpectedToken {
-    MonkeyId,
-    InventoryList,
-    Operation,
-    TestCriterion,
-    TrueThrowDestination,
-    FalseThrowDestination,
-}
-
 fn parse_input(path: &str) -> State {
-    use ExpectedToken::*;
-
     let mut state = Vec::new();
-    let mut expected_token = MonkeyId;
-    let mut curr = Monkey::default();
 
-    for line in fs::read_to_string(path).unwrap().trim_end().split("\n") {
-        let line = line.trim();
+    for lines in
+        fs::read_to_string(path).unwrap().trim_end().split("\n").filter(|l| !l.is_empty()).collect::<Vec<_>>().chunks(6)
+    {
+        let mut curr = Monkey::default();
 
-        match expected_token {
-            MonkeyId if line.is_empty() => (),
-            MonkeyId => {
-                if !line.starts_with("Monkey ") {
-                    panic!("expected monkey id line, but got: {line}");
-                }
-                expected_token = InventoryList;
-            }
-            InventoryList => {
-                curr.inventory = line
-                    .strip_prefix("Starting items: ")
-                    .unwrap()
-                    .split(", ")
-                    .map(|worry| worry.parse().unwrap())
-                    .collect();
-                expected_token = Operation;
-            }
-            Operation => {
-                let line = line.strip_prefix("Operation: new = ").unwrap();
-                curr.op = parse_operation(line);
-                expected_token = TestCriterion;
-            }
-            TestCriterion => {
-                curr.test_divisible_by = line.strip_prefix("Test: divisible by ").unwrap().parse().unwrap();
-                expected_token = TrueThrowDestination;
-            }
-            TrueThrowDestination => {
-                curr.true_throw_destination = line.strip_prefix("If true: throw to monkey ").unwrap().parse().unwrap();
-                expected_token = FalseThrowDestination;
-            }
-            FalseThrowDestination => {
-                curr.false_throw_destination =
-                    line.strip_prefix("If false: throw to monkey ").unwrap().parse().unwrap();
-                expected_token = MonkeyId;
+        curr.inventory = lines[1]
+            .trim()
+            .strip_prefix("Starting items: ")
+            .unwrap()
+            .split(", ")
+            .map(|worry| worry.parse().unwrap())
+            .collect();
 
-                state.push(curr);
-                curr = Monkey::default();
-            }
-        }
+        let line = lines[2].trim().strip_prefix("Operation: new = ").unwrap();
+        curr.op = parse_operation(line);
+
+        curr.test_divisible_by = lines[3].trim().strip_prefix("Test: divisible by ").unwrap().parse().unwrap();
+        curr.true_throw_destination =
+            lines[4].trim().strip_prefix("If true: throw to monkey ").unwrap().parse().unwrap();
+        curr.false_throw_destination =
+            lines[5].trim().strip_prefix("If false: throw to monkey ").unwrap().parse().unwrap();
+        state.push(curr);
     }
 
     State::new(state)
