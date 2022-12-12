@@ -59,10 +59,7 @@ function dijkstra(grid::Matrix{Char}; start_char::Char='S', dest_char::Char='E',
     Dict{CartesianIndex,CartesianIndex},
     Dict{CartesianIndex,Int},
     Union{CartesianIndex,Missing},
-    Union{Int,Missing},
-    CartesianIndex,
-    Char,
-    Int
+    Union{Int,Missing}
 }
     unvisited = Set([CartesianIndices(grid)...])
     start_idx = findall(x -> x == start_char, grid) |> first
@@ -71,13 +68,12 @@ function dijkstra(grid::Matrix{Char}; start_char::Char='S', dest_char::Char='E',
     distances = PriorityQueue(distances)
     distances[start_idx] = 0
 
-    best_signal_coords, best_signal_so_far, best_signal_distance = start_idx, 'a', 0
-
     final_distances = Dict(start_idx => 0)
     previous_nodes = Dict()
 
     while !isempty(unvisited)
         if isempty(distances)
+            println("used it")
             distances = PriorityQueue([k => v for (k, v) = collect(final_distances) if (k in unvisited) && v != Inf])
         end
 
@@ -96,14 +92,8 @@ function dijkstra(grid::Matrix{Char}; start_char::Char='S', dest_char::Char='E',
                     previous_nodes[neighbour_idx] = curr_idx
                     final_distances[neighbour_idx] = cost + 1
 
-                    if best_signal_so_far < normalize_char(grid[neighbour_idx])
-                        best_signal_coords = neighbour_idx
-                        best_signal_so_far = grid[neighbour_idx]
-                        best_signal_distance = cost + 1
-                    end
-
                     if grid[neighbour_idx] == dest_char
-                        return previous_nodes, final_distances, neighbour_idx, cost + 1, neighbour_idx, 'E', cost + 1
+                        return previous_nodes, final_distances, neighbour_idx, cost + 1
                     end
                 end
             end
@@ -112,7 +102,7 @@ function dijkstra(grid::Matrix{Char}; start_char::Char='S', dest_char::Char='E',
         delete!(unvisited, curr_idx)
     end
 
-    previous_nodes, final_distances, missing, missing, best_signal_coords, best_signal_so_far, best_signal_distance
+    previous_nodes, final_distances, missing, missing
 end
 
 
@@ -130,72 +120,27 @@ function visualize_paths(grid::Matrix{Char}, previous_nodes::Dict{CartesianIndex
     end
 end
 
-# excluding the start node
-function reconstruct_path(
-    previous_nodes::Dict{CartesianIndex,CartesianIndex}, to::CartesianIndex
-)::Vector{CartesianIndex}
-    curr = to
-    path = []
-    while in
-        (previous_nodes, curr)
-        push!(path, curr)
-        curr = previous_nodes[curr]
-    end
-    reverse(path)
-end
-
-function visualize_path(grid::Matrix{Char}, path::Vector{CartesianIndex})
-    for row_id = 1:size(grid)[1]
-        for col_id = 1:size(grid)[2]
-            idx = CartesianIndex(row_id, col_id)
-            if idx in path
-                print(grid[idx])
-            else
-                print(".")
-            end
-        end
-        println()
-    end
-end
-
-
 test_grid = parse_input("inputs/d12_test")
 grid = parse_input("inputs/d12")
 
-previous_nodes, final_distances, e_coords, e_cost, best_signal_coords, best_signal_so_far, best_signal_distance =
-    dijkstra(test_grid)
-@assert e_coords == CartesianIndex(3, 6)
-@assert e_cost == 31
-@assert best_signal_coords == e_coords
-@assert best_signal_so_far == 'E'
-@assert best_signal_distance == e_cost
+previous_nodes, final_distances, dest_coords, dest_cost = dijkstra(test_grid)
+@assert dest_coords == CartesianIndex(3, 6)
+@assert dest_cost == 31
+@assert test_grid[dest_coords] == 'E'
 
-previous_nodes, final_distances, e_coords, e_cost, best_signal_coords, best_signal_so_far, best_signal_distance =
-    dijkstra(grid)
-@assert e_coords == CartesianIndex(21, 59)
-@assert e_cost == 408
-@assert best_signal_coords == e_coords
-@assert best_signal_so_far == 'E'
-@assert best_signal_distance == e_cost
+previous_nodes, final_distances, dest_coords, dest_cost = dijkstra(grid)
+@assert dest_coords == CartesianIndex(21, 59)
+@assert dest_cost == 408
+@assert grid[dest_coords] == 'E'
 
-
-previous_nodes, final_distances, dest_coords, dest_cost, best_signal_coords, best_signal_so_far, best_signal_distance =
-    dijkstra(test_grid, start_char='E', dest_char='a', inverted=true)
+previous_nodes, final_distances, dest_coords, dest_cost = dijkstra(
+    test_grid, start_char='E', dest_char='a', inverted=true
+)
 @assert dest_cost == 29
 @assert dest_coords == CartesianIndex(5, 1)
+@assert grid[dest_coords] == 'a'
 
-previous_nodes, final_distances, dest_coords, dest_cost, best_signal_coords, best_signal_so_far, best_signal_distance =
-    dijkstra(grid, start_char='E', dest_char='a', inverted=true)
+previous_nodes, final_distances, dest_coords, dest_cost = dijkstra(grid, start_char='E', dest_char='a', inverted=true)
 @assert dest_cost == 399
 @assert dest_coords == CartesianIndex(34, 1)
 @assert grid[dest_coords] == 'a'
-
-
-
-# visualize_paths(grid, previous_nodes)
-# visualize_paths(grid, previous_nodes)
-# e_coords = CartesianIndex(21, 59)
-
-# 298 is too low
-# 299 is too low
-# 312 is too low
