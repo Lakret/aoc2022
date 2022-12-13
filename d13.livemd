@@ -28,6 +28,22 @@ test_input = D13.parse_input("inputs/d13_test")
 input = D13.parse_input("inputs/d13")
 ```
 
+```elixir
+D13.p1(test_input)
+```
+
+```elixir
+D13.p1(input)
+```
+
+```elixir
+D13.p2(test_input)
+```
+
+```elixir
+D13.p2(input)
+```
+
 ## Tests
 
 ```elixir
