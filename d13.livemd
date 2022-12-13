@@ -8,40 +8,70 @@ defmodule D13 do
     File.read!(path)
     |> String.trim_trailing()
     |> String.split("\n")
+    |> Enum.filter(fn x -> x != "" end)
+    |> Enum.map(fn x ->
+      {res, _} = Code.eval_string(x)
+      res
+    end)
+    |> Enum.chunk_every(2)
   end
 
-  def p1(_input) do
-    0
+  def cmp(same, same) when is_integer(same), do: nil
+  def cmp(left, right) when is_integer(left) and is_integer(right), do: left < right
+  def cmp(left, right) when is_integer(left) and is_list(right), do: cmp([left], right)
+  def cmp(left, right) when is_list(left) and is_integer(right), do: cmp(left, [right])
+
+  def cmp(left, right) when is_list(left) and is_list(right) do
+    elems_comp =
+      Enum.zip(left, right)
+      |> Enum.reduce_while(nil, fn {left, right}, acc ->
+        case cmp(left, right) do
+          nil -> {:cont, acc}
+          true -> {:halt, true}
+          false -> {:halt, false}
+        end
+      end)
+
+    case elems_comp do
+      nil when length(left) < length(right) -> true
+      nil when length(right) < length(left) -> false
+      nil -> nil
+      decided when is_boolean(decided) -> decided
+    end
   end
 
-  def p2(_input) do
-    0
+  def p1(parts_list) do
+    parts_list
+    |> Enum.with_index(1)
+    |> Enum.filter(fn {[left, right], _id} -> cmp(left, right) end)
+    |> Enum.map(fn {_, id} -> id end)
+    |> Enum.sum()
+  end
+
+  @dividers [[[2]], [[6]]]
+
+  def p2(parts_list) do
+    [@dividers | parts_list]
+    |> Enum.concat()
+    |> Enum.sort_by(fn x -> x end, &cmp/2)
+    |> Enum.with_index(1)
+    |> Enum.filter(fn {elem, _idx} -> elem in @dividers end)
+    |> Enum.map(fn {_elem, idx} -> idx end)
+    |> Enum.product()
   end
 end
 ```
 
 ```elixir
-test_input = D13.parse_input("inputs/d13_test")
+input = D13.parse_input("inputs/d13")
+{time_mcs, ans} = :timer.tc(fn -> D13.p1(input) end)
+IO.puts("P1 ans = #{inspect(ans)}. [#{time_mcs / 1_000} ms.]")
 ```
 
 ```elixir
 input = D13.parse_input("inputs/d13")
-```
-
-```elixir
-D13.p1(test_input)
-```
-
-```elixir
-D13.p1(input)
-```
-
-```elixir
-D13.p2(test_input)
-```
-
-```elixir
-D13.p2(input)
+{time_mcs, ans} = :timer.tc(fn -> D13.p2(input) end)
+IO.puts("P2 ans = #{inspect(ans)}. [#{time_mcs / 1_000} ms.]")
 ```
 
 ## Tests
@@ -60,13 +90,13 @@ defmodule D11Tests do
   end
 
   test "p1", %{input: input, test_input: test_input} do
-    assert D13.p1(test_input) == 0
-    assert D13.p1(input) == 0
+    assert D13.p1(test_input) == 13
+    assert D13.p1(input) == 5882
   end
 
   test "p2", %{input: input, test_input: test_input} do
-    assert D13.p2(test_input) == 0
-    assert D13.p2(input) == 0
+    assert D13.p2(test_input) == 140
+    assert D13.p2(input) == 24948
   end
 end
 
