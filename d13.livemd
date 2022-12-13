@@ -1,0 +1,58 @@
+# Day 13
+
+## Solution
+
+```elixir
+defmodule D13 do
+  def parse_input(path) do
+    File.read!(path)
+    |> String.trim_trailing()
+    |> String.split("\n")
+  end
+
+  def p1(_input) do
+    0
+  end
+
+  def p2(_input) do
+    0
+  end
+end
+```
+
+```elixir
+test_input = D13.parse_input("inputs/d13_test")
+```
+
+```elixir
+input = D13.parse_input("inputs/d13")
+```
+
+## Tests
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule D11Tests do
+  use ExUnit.Case, async: true
+
+  setup_all _context do
+    %{
+      input: D13.parse_input("inputs/d13"),
+      test_input: D13.parse_input("inputs/d13_test")
+    }
+  end
+
+  test "p1", %{input: input, test_input: test_input} do
+    assert D13.p1(test_input) == 0
+    assert D13.p1(input) == 0
+  end
+
+  test "p2", %{input: input, test_input: test_input} do
+    assert D13.p2(test_input) == 0
+    assert D13.p2(input) == 0
+  end
+end
+
+ExUnit.run()
+```
