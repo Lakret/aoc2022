@@ -6,6 +6,7 @@ struct Valve
 end
 
 Graph = Dict{AbstractString,Valve}
+Path = Vector{AbstractString}
 
 function parse_input(path)::Graph
     graph = Dict()
@@ -35,6 +36,74 @@ function dfs(f::Function, graph::Graph, start_id::AbstractString)
             end
         end
     end
+end
+
+global paths::Vector{Path} = []
+
+function bfs(graph::Graph, start_id::AbstractString; visited=Set{AbstractString}(), path=[])
+    # dead_end = true
+
+    for neighbour = graph[start_id].connections
+        # if neighbour ∉ visited
+        # dead_end = false
+        child_visited = copy(visited)
+        push!(child_visited, start_id)
+
+        bfs(graph, neighbour, visited=child_visited, path=[path; start_id])
+        # end
+    end
+
+    # if dead_end
+    push!(paths, path)
+    println(path)
+    # end
+end
+
+# bfs(graph, "AA")
+
+function score_path(path::Path, graph::Graph)
+    minute, total_flow, released_pressure = 0, 0, 0
+
+    for valve_id = path
+        flow = graph[valve_id].flow
+        if flow > 0
+            @show minute += 1
+            @show released_pressure += total_flow
+
+            @show minute += 1
+            @show total_flow += flow
+            @show released_pressure += total_flow
+        else
+            @show minute += 1
+            @show released_pressure += total_flow
+        end
+    end
+
+    released_pressure += (30 - minute) * total_flow
+    return (released_pressure=released_pressure, total_flow=total_flow)
+end
+
+
+global tried_paths = []
+
+function all_paths(f::Function, graph::Graph, start_id::AbstractString, visited::Set{Any})
+    push!(tried_paths, start_id)
+    s = [start_id]
+    new_node = false
+
+    f(start_id)
+
+    for connection = graph[vid].connections
+        if connection ∉ visited
+            new_node = true
+            visited = push!(visited, vid)
+            all_paths(f, g, connection, visited)
+        end
+    end
+    if !new_node
+        println(tried_paths)
+    end
+    pop!(tried_paths)
 end
 
 global minute = 0
