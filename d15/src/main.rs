@@ -185,7 +185,11 @@ fn find_beacon_coords_par(sensors: &Vec<Sensor>, beacon_max_val: i64) -> Option<
                         break;
                     }
                 }
-                return Some(Pos { x, y });
+                if x <= beacon_max_val {
+                    Some(Pos { x, y })
+                } else {
+                    None
+                }
             }
         }
     })
