@@ -37,10 +37,25 @@ function dfs(f::Function, graph::Graph, start_id::AbstractString)
     end
 end
 
+global minute = 0
+global total_flow = 0
+global released_pressure = 0
 dfs(graph, "AA") do graph, vid
     flow = graph[vid].flow
     println("discovered: $(vid) with flow $(flow)")
+    if flow > 0
+        @show global minute += 1
+        @show global released_pressure += total_flow
+
+        @show global minute += 1
+        @show global total_flow += flow
+        @show global released_pressure += total_flow
+    else
+        @show global minute += 1
+        @show global released_pressure += total_flow
+    end
 end
+@show released_pressure += (30 - minute) * total_flow
 
 # graph = test_graph
 function fw(graph::Graph)
