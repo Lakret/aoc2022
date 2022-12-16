@@ -1,7 +1,7 @@
 use core::panic;
-use std::{cmp::Ordering, fs};
+use std::{cmp::Ordering, collections::HashSet, fs};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Pos {
     x: i64,
     y: i64,
@@ -52,6 +52,21 @@ impl Sensor {
         } else {
             None
         }
+    }
+
+    fn covered_area_boundary(&self) -> Vec<Line> {
+        let distance_to_closest = self.loc.dist(self.closest_beacon);
+        let top = Pos { x: self.loc.x, y: self.loc.y - distance_to_closest };
+        let bottom = Pos { x: self.loc.x, y: self.loc.y + distance_to_closest };
+        let left = Pos { x: self.loc.x - distance_to_closest, y: self.loc.y };
+        let right = Pos { x: self.loc.x + distance_to_closest, y: self.loc.y };
+
+        vec![
+            Line { p1: top, p2: right },
+            Line { p1: right, p2: bottom },
+            Line { p1: bottom, p2: left },
+            Line { p1: left, p2: top },
+        ]
     }
 }
 
@@ -104,6 +119,36 @@ impl Ord for Interval {
 impl PartialOrd for Interval {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Line {
+    p1: Pos,
+    p2: Pos,
+}
+
+impl Line {
+    fn intersection(&self, other: Line) -> Option<Pos> {
+        let denominator =
+            (self.p1.x - self.p2.x) * (other.p1.y - other.p2.y) - (self.p1.y - self.p2.y) * (other.p1.x - other.p2.x);
+        if denominator == 0 {
+            None
+        } else {
+            let l1_part = self.p1.x * self.p2.y - self.p1.y * self.p2.x;
+            let l2_part = other.p1.x * other.p2.y - other.p1.y * other.p2.x;
+            let x = (other.p1.x - other.p2.x)
+                .checked_mul(l1_part)?
+                .checked_sub((self.p1.x - self.p2.x).checked_mul(l2_part)?)?;
+            let y = ((other.p1.y - other.p2.y).checked_mul(l1_part)?)
+                .checked_sub((self.p1.y - self.p2.y).checked_mul(l2_part)?)?;
+
+            Some(Pos { x: x / denominator, y: y / denominator })
+        }
+    }
+
+    fn slope(&self) -> i64 {
+        (self.p2.y - self.p1.y) as i64 / (self.p2.x - self.p1.x) as i64
     }
 }
 
@@ -196,13 +241,68 @@ fn find_beacon_coords_par(sensors: &Vec<Sensor>, beacon_max_val: i64) -> Option<
 }
 
 fn p2(sensors: &Vec<Sensor>, beacon_max_val: i64) -> i64 {
-    match find_beacon_coords_par(sensors, beacon_max_val) {
-        Some(Pos { x, y }) => 4000000 * x + y,
-        None => panic!("cannot find the answer"),
+    // match find_beacon_coords_par(sensors, beacon_max_val) {
+    //     Some(Pos { x, y }) => 4000000 * x + y,
+    //     None => panic!("cannot find the answer"),
+    // }
+
+    let (pos_slope, neg_slope): (Vec<_>, Vec<_>) =
+        sensors.iter().flat_map(|x| x.covered_area_boundary()).partition(|x| x.slope() == 1);
+
+    let mut intersections = vec![];
+    for l1 in &pos_slope {
+        for l2 in &neg_slope {
+            if let Some(intersection) = l1.intersection(*l2) {
+                if intersection.x >= -5
+                    && intersection.y >= -5
+                    && intersection.x <= beacon_max_val + 10
+                    && intersection.y <= beacon_max_val + 10
+                {
+                    intersections.push(intersection);
+                }
+            }
+        }
     }
+
+    for &i1 in &intersections {
+        for &i2 in &intersections {
+            let candidates = if i1.y == i2.y && (i1.x - i2.x).abs() == 2 {
+                let x = if i1.x > i2.x { i2.x + 1 } else { i1.x + 1 };
+                vec![Pos { x, y: i1.y }]
+            } else if i1.x == i2.x && (i1.y - i2.y).abs() == 2 {
+                let y = if i1.y > i2.y { i2.y + 1 } else { i1.y + 1 };
+                vec![Pos { x: i1.x, y }]
+            } else if i1.dist(i2) == 2 {
+                vec![Pos { x: i1.x, y: i2.y }, Pos { x: i2.x, y: i1.y }]
+            } else {
+                vec![]
+            };
+
+            for candidate in candidates {
+                if candidate.x >= 0
+                    && candidate.y >= 0
+                    && candidate.x <= beacon_max_val
+                    && candidate.y <= beacon_max_val
+                    && !(sensors.iter().any(|sensor| sensor.covers(candidate)))
+                {
+                    dbg!(candidate);
+                    // return candidate;
+                }
+            }
+        }
+    }
+
+    dbg!(intersections.len());
+    dbg!(&intersections[..10]);
+
+    todo!()
 }
 
 fn main() {
+    let sensors = parse_input("../inputs/d15_test");
+    let ans = p2(&sensors, 20);
+    println!("p2 ans = {ans}.");
+
     let sensors = parse_input("../inputs/d15");
     let ans = p2(&sensors, 2000000);
     println!("p2 ans = {ans}.");
@@ -295,5 +395,30 @@ mod tests {
         // TODO:
         // let sensors = parse_input("../inputs/d15");
         // assert_eq!(p2(&sensors, 2000000), 0);
+    }
+
+    #[test]
+    fn covered_area_boundary_test() {
+        let test_sensors = parse_input("../inputs/d15_test");
+        assert_eq!(
+            test_sensors[6].covered_area_boundary(),
+            vec![
+                Line { p1: Pos { x: 8, y: -2 }, p2: Pos { x: 17, y: 7 } },
+                Line { p1: Pos { x: 17, y: 7 }, p2: Pos { x: 8, y: 16 } },
+                Line { p1: Pos { x: 8, y: 16 }, p2: Pos { x: -1, y: 7 } },
+                Line { p1: Pos { x: -1, y: 7 }, p2: Pos { x: 8, y: -2 } }
+            ]
+        );
+    }
+
+    #[test]
+    fn line_intersection_test() {
+        let line1 = Line { p1: Pos { x: -1, y: 0 }, p2: Pos { x: 1, y: 2 } };
+        let line2 = Line { p1: Pos { x: 0, y: 0 }, p2: Pos { x: 3, y: 3 } };
+        assert_eq!(line1.intersection(line2), None);
+
+        let line1 = Line { p1: Pos { x: 8, y: -2 }, p2: Pos { x: 17, y: 7 } };
+        let line2 = Line { p1: Pos { x: 14, y: -2 }, p2: Pos { x: 8, y: 4 } };
+        assert_eq!(line1.intersection(line2), Some(Pos { x: 11, y: 1 }));
     }
 }
