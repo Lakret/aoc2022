@@ -1,5 +1,5 @@
 use core::panic;
-use std::{cmp::Ordering, collections::HashSet, fs};
+use std::{cmp::Ordering, fs, time::Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Pos {
@@ -129,6 +129,7 @@ struct Line {
 }
 
 impl Line {
+    // See https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line_segment
     fn intersection(&self, other: Line) -> Option<Pos> {
         let denominator =
             (self.p1.x - self.p2.x) * (other.p1.y - other.p2.y) - (self.p1.y - self.p2.y) * (other.p1.x - other.p2.x);
@@ -187,65 +188,6 @@ fn p1(sensors: &Vec<Sensor>, y: i64) -> i64 {
 }
 
 fn find_beacon_coords(sensors: &Vec<Sensor>, beacon_max_val: i64) -> Option<Pos> {
-    for y in 0..(beacon_max_val + 1) {
-        if y % 1000 == 0 {
-            println!("y = {y}...");
-        }
-        let cover_xs = all_covers_on_y_combined(sensors, y);
-        match &cover_xs[..] {
-            [] => panic!("too many options at y = {y}!"),
-            [Interval { min_val, max_val }] if *min_val <= 0 && *max_val >= beacon_max_val => continue,
-            covers => {
-                let mut x = 0;
-                for cover in covers {
-                    if cover.min_val <= x && cover.max_val >= x {
-                        x = cover.max_val + 1
-                    } else {
-                        return Some(Pos { x, y });
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-use rayon::prelude::*;
-
-fn find_beacon_coords_par(sensors: &Vec<Sensor>, beacon_max_val: i64) -> Option<Pos> {
-    (0..(beacon_max_val + 1)).into_par_iter().find_map_first(|y| {
-        if y % 1000 == 0 {
-            println!("y = {y}...");
-        }
-        let cover_xs = all_covers_on_y_combined(sensors, y);
-        match &cover_xs[..] {
-            [] => panic!("too many options at y = {y}!"),
-            [Interval { min_val, max_val }] if *min_val <= 0 && *max_val >= beacon_max_val => None,
-            covers => {
-                let mut x = 0;
-                for cover in covers {
-                    if cover.min_val <= x && cover.max_val >= x {
-                        x = cover.max_val + 1
-                    } else {
-                        break;
-                    }
-                }
-                if x <= beacon_max_val {
-                    Some(Pos { x, y })
-                } else {
-                    None
-                }
-            }
-        }
-    })
-}
-
-fn p2(sensors: &Vec<Sensor>, beacon_max_val: i64) -> i64 {
-    // match find_beacon_coords_par(sensors, beacon_max_val) {
-    //     Some(Pos { x, y }) => 4000000 * x + y,
-    //     None => panic!("cannot find the answer"),
-    // }
-
     let (pos_slope, neg_slope): (Vec<_>, Vec<_>) =
         sensors.iter().flat_map(|x| x.covered_area_boundary()).partition(|x| x.slope() == 1);
 
@@ -285,27 +227,34 @@ fn p2(sensors: &Vec<Sensor>, beacon_max_val: i64) -> i64 {
                     && candidate.y <= beacon_max_val
                     && !(sensors.iter().any(|sensor| sensor.covers(candidate)))
                 {
-                    dbg!(candidate);
-                    // return candidate;
+                    return Some(candidate);
                 }
             }
         }
     }
 
-    dbg!(intersections.len());
-    dbg!(&intersections[..10]);
+    None
+}
 
-    todo!()
+fn p2(sensors: &Vec<Sensor>, beacon_max_val: i64) -> i64 {
+    match find_beacon_coords(sensors, beacon_max_val) {
+        Some(Pos { x, y }) => 4000000 * x + y,
+        None => panic!("cannot find the answer"),
+    }
 }
 
 fn main() {
-    let sensors = parse_input("../inputs/d15_test");
-    let ans = p2(&sensors, 20);
-    println!("p2 ans = {ans}.");
-
     let sensors = parse_input("../inputs/d15");
-    let ans = p2(&sensors, 2000000);
-    println!("p2 ans = {ans}.");
+
+    let now = Instant::now();
+    let ans = p1(&sensors, 2000000);
+    let duration = now.elapsed();
+    println!("p1 ans = {ans} [{duration:?}]");
+
+    let now = Instant::now();
+    let ans = p2(&sensors, 4000000);
+    let duration = now.elapsed();
+    println!("p2 ans = {ans} [{duration:?}]");
 }
 
 #[cfg(test)]
@@ -392,9 +341,8 @@ mod tests {
         assert_eq!(find_beacon_coords(&test_sensors, 20), Some(Pos { x: 14, y: 11 }));
         assert_eq!(p2(&test_sensors, 20), 56000011);
 
-        // TODO:
-        // let sensors = parse_input("../inputs/d15");
-        // assert_eq!(p2(&sensors, 2000000), 0);
+        let sensors = parse_input("../inputs/d15");
+        assert_eq!(p2(&sensors, 4000000), 13213086906101);
     }
 
     #[test]
