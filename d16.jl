@@ -22,14 +22,25 @@ test_graph = parse_input("inputs/d16_test")
 graph = parse_input("inputs/d16")
 
 
-#     for each edge (u, v) do
-#         dist[u][v] ← w(u, v)  // The weight of the edge (u, v)
-#     for k from 1 to |V|
-#         for i from 1 to |V|
-#             for j from 1 to |V|
-#                 if dist[i][j] > dist[i][k] + dist[k][j]
-#                     dist[i][j] ← dist[i][k] + dist[k][j]
-#                 end if
+function dfs(f::Function, graph::Graph, start_id::AbstractString)
+    s = [start_id]
+    discovered = Set()
+    while !isempty(s)
+        vid = pop!(s)
+        if vid ∉ discovered
+            push!(discovered, vid)
+            f(graph, vid)
+            for vid = graph[vid].connections
+                push!(s, vid)
+            end
+        end
+    end
+end
+
+dfs(graph, "AA") do graph, vid
+    flow = graph[vid].flow
+    println("discovered: $(vid) with flow $(flow)")
+end
 
 # graph = test_graph
 function fw(graph::Graph)
