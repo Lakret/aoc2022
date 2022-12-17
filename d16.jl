@@ -210,25 +210,18 @@ function get_score(state::State2, max_minutes::Int)
     sum(state.released_pressure .+ (max_minutes .- state.minutes) .* state.flows)
 end
 
-state = State2([1, 1], deepcopy(test_graph_non_zero_flow_valves), [0, 0], [0, 0], [0, 0])
-move_to!(state, test_graph_dist, 10, 1)
-open_valve!(state, test_graph, 1)
-move_to!(state, test_graph_dist, 4, 2)
-open_valve!(state, test_graph, 2)
-get_score(state, 5)
-
 function p2(graph::VecGraph; start_id::Int=1, max_minutes=26)
     graph_dist, _graph_paths = fw(graph)
     non_zero_flow_valves = get_non_zero_flow_valves(graph)
 
     scores = Set()
     queue = [State2([start_id, start_id], deepcopy(non_zero_flow_valves), [0, 0], [0, 0], [0, 0])]
+    positions = Set()
 
     while !isempty(queue)
         state = popfirst!(queue)
 
         if all(state.minutes .>= max_minutes)
-            # println(state)
             push!(scores, get_score(state, max_minutes))
         elseif isempty(state.to_open)
             # no more valves to open => compute the rest of the time and save the score
@@ -251,18 +244,25 @@ function p2(graph::VecGraph; start_id::Int=1, max_minutes=26)
                     # elephant
                     remaining_time = max_minutes - state.minutes[2]
                     for next_id = new_state.to_open
-                        if graph_dist[state.current_ids[2], next_id] < remaining_time
+                        if (
+                            !(
+                                all(state.minutes .<= 2) &&
+                                (next_id, new_state.current_ids[1]) ∈ positions
+                            ) && graph_dist[state.current_ids[2], next_id] < remaining_time
+                        )
                             new_new_state = deepcopy(new_state)
 
                             move_to!(new_new_state, graph_dist, next_id, 2)
                             open_valve!(new_new_state, graph, 2)
 
-                            # println(new_new_state)
                             push!(queue, new_new_state)
+                            push!(positions, (new_new_state.current_ids[1], next_id))
                         end
                     end
                 end
             end
+
+            empty!(positions)
 
             # if no more valves can be opened, we calculate the score
             if !more_valves_will_be_opened
@@ -274,5 +274,31 @@ function p2(graph::VecGraph; start_id::Int=1, max_minutes=26)
     scores |> maximum
 end
 
-@time @assert @show p2(test_graph, max_minutes=26) == 1707
-@time @assert @show p2(graph, max_minutes=26) == 2056
+@time @assert @show @time p2(test_graph, max_minutes=26) == 1707
+# @time @assert @show p2(graph, max_minutes=26) == 2056
+
+# julia> @time p2(test_graph, max_minutes=26) == 1707
+#   0.001917 seconds (25.95 k allocations: 1.969 MiB)
+
+# julia> @time p2(test_graph, max_minutes=26)
+#   0.008686 seconds (27.06 k allocations: 2.054 MiB)
+
+
+# julia> @time p2(graph, max_minutes=20)
+#  12.970624 seconds (72.10 M allocations: 5.537 GiB)
+# julia> @time p2(graph, max_minutes=20)
+#  10.247361 seconds (72.10 M allocations: 5.537 GiB, 25.32% gc time)
+
+
+# julia> @time p2(graph, max_minutes=20)
+#  10.026532 seconds (68.51 M allocations: 5.269 GiB, 38.86% gc time)
+# 1460
+
+# julia> @time p2(graph, max_minutes=20)
+#   8.816874 seconds (68.51 M allocations: 5.269 GiB, 37.07% gc time)
+
+# julia> @time p2(graph, max_minutes=20)
+#   7.926491 seconds (68.51 M allocations: 5.269 GiB, 35.35% gc time)
+
+# julia> @time p2(graph, max_minutes=20)
+#   0.998779 seconds (8.94 M allocations: 687.624 MiB, 21.92% gc time)
