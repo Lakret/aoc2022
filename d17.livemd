@@ -313,13 +313,56 @@ defmodule World do
 
     :ok
   end
+
+  # p2 
+
+  def top_boundary_normalized(world = %__MODULE__{}) do
+    world.stationary_formation
+    |> Enum.group_by(fn %Coords{x: x} -> x end)
+    |> Enum.reduce([], fn {_x, coords}, acc ->
+      highest = Enum.min_by(coords, fn %Coords{y: y} -> y end)
+      highest = %{highest | y: highest.y - world.highest_y}
+      [highest | acc]
+    end)
+  end
+
+  def find_cycle(world = %__MODULE__{}) do
+    find_cycle(world, 0, Map.new())
+  end
+
+  def find_cycle(world, n_stopped, memo) do
+    new_world = advance_till_next_falling(world)
+
+    case top_boundary_normalized(new_world) do
+      [] ->
+        find_cycle(world, n_stopped + 1, memo)
+
+      boundary ->
+        key = {new_world.jet_idx, new_world.next_shape, boundary}
+
+        if Map.has_key?(memo, key) do
+          {prev_n_stopped, prev_highest_y} = memo[key]
+
+          %{
+            curr_n_stopped: n_stopped + 1,
+            curr_highest_y: new_world.highest_y,
+            prev_n_stopped: prev_n_stopped,
+            prev_highest_y: prev_highest_y,
+            key: key
+          }
+        else
+          memo = Map.put(memo, key, {n_stopped, new_world.highest_y})
+          find_cycle(new_world, n_stopped + 1, memo)
+        end
+    end
+  end
 end
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, World, <<70, 79, 82, 49, 0, 0, 38, ...>>, {:draw, 1}}
+{:module, World, <<70, 79, 82, 49, 0, 0, 49, ...>>, {:find_cycle, 3}}
 ```
 
 ```elixir
@@ -347,321 +390,415 @@ World.draw(world)
 ```
 
 ```elixir
-world = world |> World.advance_till_next_falling() |> World.advance()
-World.draw(world)
+%{
+  curr_n_stopped: curr_n_stopped,
+  curr_highest_y: curr_highest_y,
+  prev_n_stopped: prev_n_stopped,
+  prev_highest_y: prev_highest_y
+} = World.find_cycle(world)
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-|.......|
-|...@...|
-|..@@@..|
-|...@...|
-|.......|
-|.......|
-|.......|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
+%{
+  curr_highest_y: -98,
+  curr_n_stopped: 63,
+  key: {28, :vline,
+   [
+     %Coords{x: 6, y: 7},
+     %Coords{x: 5, y: 5},
+     %Coords{x: 4, y: 3},
+     %Coords{x: 3, y: 2},
+     %Coords{x: 2, y: 0},
+     %Coords{x: 1, y: 2},
+     %Coords{x: 0, y: 2}
+   ]},
+  prev_highest_y: -45,
+  prev_n_stopped: 27
+}
 ```
 
 ```elixir
-world = world |> World.advance_till_next_falling() |> World.advance()
-World.draw(world)
+height_increase = abs(curr_highest_y) - abs(prev_highest_y)
+cycle_length = curr_n_stopped - prev_n_stopped
+{height_increase, cycle_length}
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-|.......|
-|....@..|
-|....@..|
-|..@@@..|
-|.......|
-|.......|
-|.......|
-|...#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
+{53, 36}
 ```
 
 ```elixir
-world = World.advance_till_next_falling(world) |> World.advance()
+cyclic_height_increase =
+  div(1_000_000_000_000, cycle_length) * height_increase + abs(prev_highest_y)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+1472222222226
+```
+
+```elixir
+1_514_285_714_288
+1_472_222_222_181
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+warning: code block contains unused literal 1_514_285_714_288 (remove the literal or assign it to _ to avoid warnings)
+  d17.livemd#cell:hmggvj7xglytunl6gsnvlnu5bgkq6mjq:1
+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+1472222222181
+```
+
+```elixir
+additional_cycles = rem(1_000_000_000_000, cycle_length)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+28
+```
+
+```elixir
+world = World.new(test_jets)
+world = world |> World.advance_till_stopped(prev_n_stopped) |> IO.inspect()
+before_additional_cycles_y = world.highest_y
+world = world |> World.advance_till_stopped(additional_cycles + prev_n_stopped) |> IO.inspect()
+additional_height_increase = abs(world.highest_y) - abs(before_additional_cycles_y)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%World{
+  active_rock: nil,
+  stationary_formation: MapSet.new([
+    %Coords{x: 4, y: 3},
+    %Coords{x: 3, y: -25},
+    %Coords{x: 4, y: -2},
+    %Coords{x: 2, y: -40},
+    %Coords{x: 5, y: -5},
+    %Coords{x: 3, y: -40},
+    %Coords{x: 4, y: -1},
+    %Coords{x: 6, y: -18},
+    %Coords{x: 4, y: -36},
+    %Coords{x: 3, y: -26},
+    %Coords{x: 3, y: -14},
+    %Coords{x: 3, y: -43},
+    %Coords{x: 2, y: -22},
+    %Coords{x: 2, y: -35},
+    %Coords{x: 4, y: 0},
+    %Coords{x: 5, y: -36},
+    %Coords{x: 0, y: -13},
+    %Coords{x: 2, y: -7},
+    %Coords{x: 2, y: -6},
+    %Coords{x: 4, y: -10},
+    %Coords{x: 5, y: -4},
+    %Coords{x: 1, y: -8},
+    %Coords{x: 2, y: -33},
+    %Coords{x: 2, y: -42},
+    %Coords{x: 6, y: -14},
+    %Coords{x: 3, y: -8},
+    %Coords{x: 3, y: -42},
+    %Coords{x: 0, y: -12},
+    %Coords{x: 1, y: -33},
+    %Coords{x: 4, y: -27},
+    %Coords{x: 5, y: -11},
+    %Coords{x: 4, y: -14},
+    %Coords{x: 2, y: -28},
+    %Coords{x: 3, y: -17},
+    %Coords{x: 3, y: -15},
+    %Coords{x: 4, y: -24},
+    %Coords{x: 3, y: -6},
+    %Coords{x: 3, y: -23},
+    %Coords{x: 5, y: -35},
+    %Coords{x: 3, y: 2},
+    %Coords{x: 2, y: -2},
+    %Coords{x: 5, y: -14},
+    %Coords{x: 2, y: -26},
+    %Coords{x: 4, y: -32},
+    %Coords{x: 6, y: -34},
+    %Coords{x: 5, y: -9},
+    %Coords{x: 0, ...},
+    %Coords{...},
+    ...
+  ]),
+  highest_y: -43,
+  floor_level: 4,
+  next_shape: :close_quote,
+  jets: [">", ">", ">", "<", "<", ">", "<", ">", ">", "<", "<", "<", ">", ">",
+   "<", ">", ">", ">", "<", "<", "<", ">", ">", ">", "<", "<", "<", ">", "<",
+   "<", "<", ">", ">", "<", ">", ">", "<", "<", ">", ">"],
+  jet_idx: 23,
+  next_step: :add_rock,
+  stopped_rocks: 27
+}
+%World{
+  active_rock: nil,
+  stationary_formation: MapSet.new([
+    %Coords{x: 4, y: 3},
+    %Coords{x: 3, y: -25},
+    %Coords{x: 2, y: -66},
+    %Coords{x: 4, y: -2},
+    %Coords{x: 5, y: -63},
+    %Coords{x: 2, y: -40},
+    %Coords{x: 5, y: -5},
+    %Coords{x: 4, y: -52},
+    %Coords{x: 3, y: -40},
+    %Coords{x: 4, y: -1},
+    %Coords{x: 4, y: -85},
+    %Coords{x: 6, y: -18},
+    %Coords{x: 4, y: -36},
+    %Coords{x: 4, y: -48},
+    %Coords{x: 3, y: -26},
+    %Coords{x: 3, y: -14},
+    %Coords{x: 2, y: -45},
+    %Coords{x: 4, y: -68},
+    %Coords{x: 3, y: -43},
+    %Coords{x: 2, y: -22},
+    %Coords{x: 2, y: -35},
+    %Coords{x: 2, y: -79},
+    %Coords{x: 1, y: -57},
+    %Coords{x: 4, y: 0},
+    %Coords{x: 2, y: -73},
+    %Coords{x: 5, y: -36},
+    %Coords{x: 0, y: -13},
+    %Coords{x: 4, y: -65},
+    %Coords{x: 4, y: -80},
+    %Coords{x: 2, y: -81},
+    %Coords{x: 3, y: -75},
+    %Coords{x: 0, y: -44},
+    %Coords{x: 2, y: -7},
+    %Coords{x: 3, y: -61},
+    %Coords{x: 0, y: -43},
+    %Coords{x: 2, y: -6},
+    %Coords{x: 4, y: -10},
+    %Coords{x: 4, y: -50},
+    %Coords{x: 4, y: -47},
+    %Coords{x: 5, y: -4},
+    %Coords{x: 1, y: -8},
+    %Coords{x: 2, y: -33},
+    %Coords{x: 1, y: -58},
+    %Coords{x: 3, y: -57},
+    %Coords{x: 1, y: -80},
+    %Coords{x: 2, y: -42},
+    %Coords{x: 6, ...},
+    %Coords{...},
+    ...
+  ]),
+  highest_y: -85,
+  floor_level: 4,
+  next_shape: :hline,
+  jets: [">", ">", ">", "<", "<", ">", "<", ">", ">", "<", "<", "<", ">", ">",
+   "<", ">", ">", ">", "<", "<", "<", ">", ">", ">", "<", "<", "<", ">", "<",
+   "<", "<", ">", ">", "<", ">", ">", "<", "<", ">", ">"],
+  jet_idx: 28,
+  next_step: :add_rock,
+  stopped_rocks: 55
+}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+42
+```
+
+```elixir
+cyclic_height_increase + additional_height_increase + height_increase
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+1472222222276
+```
+
+```elixir
+1_514_285_714_288 - cyclic_height_increase
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+42063492107
+```
+
+```elixir
+1_514_285_714_288
+499_999_999_986
+```
+
+```elixir
+world = World.new(test_jets) |> World.advance_till_stopped(100)
 World.draw(world)
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-|..@....|
-|..@....|
-|..@....|
-|..@....|
 |.......|
 |.......|
 |.......|
-|..#....|
-|..#....|
+|.......|
+|.......|
+|.......|
+|.......|
+|#......|
+|#......|
+|#.#....|
+|#.#....|
 |####...|
-|..###..|
-|...#...|
+|..#####|
+|...#.##|
 |..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = World.advance_till_next_falling(world) |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|..@@...|
-|..@@...|
-|.......|
-|.......|
-|.......|
+|.##....|
+|.##...#|
+|..#...#|
+|..#.###|
+|..#..#.|
+|..#.###|
+|.#####.|
 |....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = World.advance_till_next_falling(world) |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.......|
-|..@@@@.|
-|.......|
-|.......|
-|.......|
-|....##.|
-|....##.|
 |....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = World.advance_till_next_falling(world) |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|...@...|
-|..@@@..|
-|...@...|
-|.......|
-|.......|
-|.......|
-|.####..|
-|....##.|
-|....##.|
 |....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = World.advance_till_next_falling(world) |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|....@..|
-|....@..|
-|..@@@..|
-|.......|
-|.......|
-|.......|
-|..#....|
-|.###...|
-|..#....|
-|.####..|
-|....##.|
-|....##.|
 |....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
+|.##.#..|
+|.##.#..|
+|..###..|
+|...#...|
 |..###..|
 |...#...|
 |..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = World.advance_till_next_falling(world) |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|..@....|
-|..@....|
-|..@....|
-|..@....|
-|.......|
-|.......|
-|.......|
+|..###..|
+|..###..|
+|..####.|
+|....###|
 |.....#.|
+|.#####.|
+|.#..#..|
+|.#..#..|
+|.####.#|
+|.####.#|
+|###.###|
+|.#####.|
+|.###...|
+|.###...|
+|.#.#...|
+|.#.#.#.|
+|.######|
+|.#####.|
+|....#..|
+|....#..|
+|....#..|
+|....#..|
+|.##.#..|
+|.##.#..|
+|..###..|
+|....#..|
+|...###.|
+|#...#..|
+|#####..|
+|#.#....|
+|#.#....|
+|####...|
+|..#####|
+|...#.##|
+|..####.|
+|.##....|
+|.##...#|
+|..#...#|
+|..#.###|
+|..#..#.|
+|..#.###|
+|.#####.|
+|....#..|
+|....#..|
+|....#..|
+|....#..|
+|.##.#..|
+|.##.#..|
+|..###..|
+|...#...|
+|..###..|
+|...#...|
+|..####.|
+|..###..|
+|..###..|
+|..####.|
+|....###|
 |.....#.|
-|..####.|
+|.#####.|
+|.#..#..|
+|.#..#..|
+|.####.#|
+|.####.#|
+|###.###|
+|.#####.|
 |.###...|
-|..#....|
-|.####..|
-|....##.|
-|....##.|
+|.###...|
+|.#.#...|
+|.#.#.#.|
+|.######|
+|.#####.|
 |....#..|
-|..#.#..|
-|..#.#..|
+|....#..|
+|....#..|
+|....#..|
+|.##.#..|
+|.##.#..|
+|..###..|
+|....#..|
+|...###.|
+|#...#..|
 |#####..|
+|#.#....|
+|#.#....|
+|####...|
+|..#####|
+|...#.##|
+|..####.|
+|.##....|
+|.##...#|
+|..#...#|
+|..#.###|
+|..#..#.|
+|..#.###|
+|.#####.|
+|....#..|
+|....#..|
+|....#..|
+|....#..|
+|.##.#..|
+|.##.#..|
+|..###..|
+|...#...|
 |..###..|
 |...#...|
 |..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = World.advance_till_next_falling(world) |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|..@@...|
-|..@@...|
-|.......|
-|.......|
-|.......|
-|....#..|
-|....#..|
-|....##.|
-|....##.|
-|..####.|
-|.###...|
-|..#....|
-|.####..|
-|....##.|
-|....##.|
-|....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
+|.....##|
+|.....##|
+|......#|
+|......#|
+|...####|
 |..###..|
 |...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = World.advance_till_next_falling(world) |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.......|
-|..@@@@.|
-|.......|
-|.......|
-|.......|
-|....#..|
-|....#..|
-|....##.|
+|#..####|
+|#...#..|
+|#...#..|
+|#...##.|
 |##..##.|
 |######.|
 |.###...|
@@ -686,6 +823,25 @@ World.draw(world)
 ```
 
 ```elixir
+World.top_boundary_normalized(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[
+  %Coords{x: 6, y: 5},
+  %Coords{x: 5, y: 5},
+  %Coords{x: 4, y: 5},
+  %Coords{x: 3, y: 4},
+  %Coords{x: 2, y: 2},
+  %Coords{x: 1, y: 4},
+  %Coords{x: 0, y: 0}
+]
+```
+
+```elixir
+# 3068
 world = World.new(test_jets) |> World.advance_till_stopped(2022)
 abs(world.highest_y) + world.floor_level
 ```
@@ -697,6 +853,7 @@ abs(world.highest_y) + world.floor_level
 ```
 
 ```elixir
+# 3179
 world = World.new(jets) |> World.advance_till_stopped(2022)
 abs(world.highest_y) + world.floor_level
 ```
@@ -705,4 +862,552 @@ abs(world.highest_y) + world.floor_level
 
 ```
 3179
+```
+
+```elixir
+world = World.new(jets)
+:timer.tc(fn -> world |> World.advance_till_stopped(10_000) end)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{1072443,
+ %World{
+   active_rock: nil,
+   stationary_formation: MapSet.new([
+     %Coords{x: 3, y: -14023},
+     %Coords{x: 3, y: -6415},
+     %Coords{x: 6, y: -11883},
+     %Coords{x: 4, y: -14965},
+     %Coords{x: 4, y: -3925},
+     %Coords{x: 2, y: -5306},
+     %Coords{x: 4, y: -2581},
+     %Coords{x: 5, y: -10260},
+     %Coords{x: 5, y: -7792},
+     %Coords{x: 3, y: -3394},
+     %Coords{x: 3, y: -12259},
+     %Coords{x: 4, y: -8958},
+     %Coords{x: 5, y: -10159},
+     %Coords{x: 5, y: -6219},
+     %Coords{x: 2, y: -4413},
+     %Coords{x: 2, y: -6994},
+     %Coords{x: 2, y: -8924},
+     %Coords{x: 2, y: -787},
+     %Coords{x: 1, y: -13583},
+     %Coords{x: 1, y: -7370},
+     %Coords{x: 2, y: -15190},
+     %Coords{x: 2, y: -11279},
+     %Coords{x: 2, y: -10875},
+     %Coords{x: 3, y: -10408},
+     %Coords{x: 1, y: -14217},
+     %Coords{x: 2, y: -13975},
+     %Coords{x: 2, y: -3917},
+     %Coords{x: 1, y: -5306},
+     %Coords{x: 6, y: -12689},
+     %Coords{x: 1, y: -346},
+     %Coords{x: 1, y: -9860},
+     %Coords{x: 1, y: -10285},
+     %Coords{x: 3, y: -14745},
+     %Coords{x: 4, y: -14006},
+     %Coords{x: 2, y: -1673},
+     %Coords{x: 4, y: -6214},
+     %Coords{x: 3, y: -1595},
+     %Coords{x: 4, y: -7068},
+     %Coords{x: 3, y: -6747},
+     %Coords{x: 3, y: -7671},
+     %Coords{x: 3, y: -1677},
+     %Coords{x: 2, y: -8005},
+     %Coords{x: 5, y: -7904},
+     %Coords{x: 4, y: -11022},
+     %Coords{x: 3, ...},
+     %Coords{...},
+     ...
+   ]),
+   highest_y: -15696,
+   floor_level: 4,
+   next_shape: :hline,
+   jets: [">", "<", "<", "<", "<", ">", ">", "<", "<", ">", "<", "<", "<", "<", ">", ">", ">", ">",
+    "<", "<", ">", "<", "<", "<", ">", ">", ">", "<", "<", ">", ">", ">", ">", "<", "<", "<", "<",
+    ">", ">", ">", "<", "<", ...],
+   jet_idx: 7678,
+   next_step: :add_rock,
+   stopped_rocks: 10000
+ }}
+```
+
+```elixir
+1_072_443 / 1_000 / 1_000
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+1.072443
+```
+
+```elixir
+1_000_000_000_000 / 10_000 * 1.07 / 60 / 60 / 24 / 365
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+3.3929477422628107
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+
+21:57:03.603 [error] Task #PID<0.4726.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:57:06.946 [error] Task #PID<0.4731.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:57:08.478 [error] Task #PID<0.4732.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:57:08.621 [error] Task #PID<0.4733.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:57:08.879 [error] Task #PID<0.4734.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:57:09.196 [error] Task #PID<0.4736.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:57:09.330 [error] Task #PID<0.4738.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:57:09.688 [error] Task #PID<0.4740.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:57:09.904 [error] Task #PID<0.4743.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:46.597 [error] Task #PID<0.4777.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:47.058 [error] Task #PID<0.4778.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:47.438 [error] Task #PID<0.4779.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:47.663 [error] Task #PID<0.4780.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:47.814 [error] Task #PID<0.4781.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:48.358 [error] Task #PID<0.4782.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:48.552 [error] Task #PID<0.4783.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:48.877 [error] Task #PID<0.4784.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:49.198 [error] Task #PID<0.4785.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:49.667 [error] Task #PID<0.4786.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:50.293 [error] Task #PID<0.4787.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:51.350 [error] Task #PID<0.4789.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:54.051 [error] Task #PID<0.4790.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:54.197 [error] Task #PID<0.4791.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:54.397 [error] Task #PID<0.4792.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:54.806 [error] Task #PID<0.4794.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:59.601 [error] Task #PID<0.4801.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:58:59.868 [error] Task #PID<0.4802.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:59:00.174 [error] Task #PID<0.4803.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:59:00.406 [error] Task #PID<0.4804.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
+21:59:00.630 [error] Task #PID<0.4805.0> started from #PID<0.129.0> terminating
+** (TokenMissingError) nofile:1:48: missing terminator: end (for "fn" starting at line 1)
+    |
+  1 | group_by(enumerable, key_fun, value_fun \\ fn x
+    |                                                ^
+    lib/livebook/intellisense.ex:112: Livebook.Intellisense.arguments_from_signature/1
+    lib/livebook/intellisense.ex:102: Livebook.Intellisense.format_signature_item/1
+    (elixir 1.14.2) lib/enum.ex:1658: Enum."-map/2-lists^map/1-0-"/2
+    lib/livebook/intellisense.ex:90: Livebook.Intellisense.get_signature_items/2
+    lib/livebook/runtime/erl_dist/runtime_server.ex:409: anonymous fn/4 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2
+    (elixir 1.14.2) lib/task/supervised.ex:89: Task.Supervised.invoke_mfa/2
+    (stdlib 4.1.1) proc_lib.erl:240: :proc_lib.init_p_do_apply/3
+Function: #Function<4.20643116/0 in Livebook.Runtime.ErlDist.RuntimeServer.handle_cast/2>
+    Args: []
+
 ```
