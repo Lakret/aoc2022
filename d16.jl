@@ -1,14 +1,21 @@
 using Pipe
 
-struct Valve
+# Part 1 idea:
+# 1. preproccess the graph with FW to find shortest distances between all nodes
+# 2. all candidate for optimality paths can be expressed as a permutation of non-zero flow valves
+# 3. for each permutation, compute the score using the shortest distances to speed up computation for no change
+# moments
+# + use vectors and integer vertex ids
+
+struct Valve{KeyId}
     flow::Int64
-    connections::Vector{AbstractString}
+    connections::Vector{<:KeyId}
 end
 
-Graph = Dict{AbstractString,Valve}
-Path = Vector{AbstractString}
+DictGraph{KeyId} = Dict{KeyId,Valve{<:KeyId}}
+Path{KeyId} = Vector{<:KeyId}
 
-function parse_input(path)::Graph
+function parse_input(path)::DictGraph{AbstractString}
     graph = Dict()
     re = r"^Valve (?<id>\w+) has flow rate=(?<flow>\d+); tunnels? leads? to valves? (?<connections>(\w+(?:, )?)+)$"
     matches = @pipe read(path, String) |> chomp |> split(_, "\n") |> match.(re, _)
@@ -20,115 +27,151 @@ function parse_input(path)::Graph
 end
 
 test_graph = parse_input("inputs/d16_test")
-# graph = parse_input("inputs/d16")
-graph = test_graph
+graph = parse_input("inputs/d16")
 
-# julia> @time scores = p1(graph, "AA"; max_minutes=20)
-#   1.186413 seconds (10.31 M allocations: 618.148 MiB)
-# julia> @time scores = p1(graph, "AA"; max_minutes=25)
-#  80.670934 seconds (632.84 M allocations: 28.217 GiB, 7.94% gc time)
+VecGraph = Vector{Valve{<:Int}}
 
-# with max_no_flow_change=4
-# julia> @time scores = p1(graph, "AA"; max_minutes=20)
-#   0.007475 seconds (49.31 k allocations: 3.127 MiB)
-# julia> @time scores = p1(graph, "AA"; max_minutes=30)
-#   0.013461 seconds (64.22 k allocations: 3.644 MiB)
+function index_graph(graph::DictGraph{AbstractString})::Tuple{VecGraph,Dict{AbstractString,Int}}
+    id_to_idx = keys(graph) |> collect
+    sort!(id_to_idx)
+    @show id_to_idx = id_to_idx |> enumerate .|> reverse |> Dict
+    vec_graph = Vector{Valve}(undef, length(id_to_idx))
 
-# with max_no_flow_change=8
-# julia> @time scores = p1(graph, "AA"; max_minutes=30)
-# 154.150911 seconds (825.09 M allocations: 43.165 GiB, 7.05% gc time)
-# 1650
-# julia> @time scores = p1(graph, "AA"; max_minutes=30)
-# 478.817691 seconds (1.90 G allocations: 100.063 GiB, 19.19% gc time)
-# 1650
+    for (id, valve) = graph
+        idx = id_to_idx[id]
+        connections = map(id -> id_to_idx[id], valve.connections)
+        vec_graph[idx] = Valve(valve.flow, connections)
+    end
 
-function p1(graph::Graph, start_id::AbstractString; max_minutes=6, max_no_flow_change=9)
-    to_explore = [(curr=start_id, minute=0, opened=[], total_flow=0, released_so_far=0, last_flow_change_min=0)]
-    scores = Set()
-    # TODO: non-zero valves count
-    max_opened = 6
+    vec_graph, id_to_idx
+end
 
-    while !isempty(to_explore)
-        curr, minute, opened, total_flow, released_so_far, last_flow_change_min = popfirst!(to_explore)
+test_graph, test_graph_id_to_idx = index_graph(test_graph)
+graph, graph_id_to_idx = index_graph(graph)
 
-        # if all valves were opened, skip to the end
-        if length(opened) == max_opened || minute - last_flow_change_min >= max_no_flow_change
-            released_so_far += (max_minutes - minute) * total_flow
-            push!(scores, released_so_far)
-            continue
+function fw(graph::VecGraph)::Tuple{Matrix{Int},Matrix{Int}}
+    n_vertices = length(graph)
+    dist = fill(Inf, (n_vertices, n_vertices))
+    paths = fill(0, (n_vertices, n_vertices))
+
+    for (vertex_id, valve) = enumerate(graph)
+        dist[vertex_id, vertex_id] = 0
+        paths[vertex_id, vertex_id] = vertex_id
+
+        for next_vertex_id = valve.connections
+            dist[vertex_id, next_vertex_id] = 1
+            paths[vertex_id, next_vertex_id] = next_vertex_id
         end
+    end
 
-        if minute < max_minutes
-            flow = graph[curr].flow
-            if flow > 0 && curr ∉ opened
-                minute += 1
-                released_so_far += total_flow
-                opened = [curr; opened]
-                last_flow_change_min = minute
-
-                minute += 1
-                total_flow += flow
-                released_so_far += total_flow
-            else
-                minute += 1
-                released_so_far += total_flow
+    for k = 1:n_vertices
+        for i = 1:n_vertices
+            for j = 1:n_vertices
+                if dist[i, j] > dist[i, k] + dist[k, j]
+                    dist[i, j] = dist[i, k] + dist[k, j]
+                    paths[i, j] = paths[i, k]
+                end
             end
+        end
+    end
 
-            for neighbour = graph[curr].connections
-                push!(
-                    to_explore,
-                    (curr=neighbour, minute=minute, opened=opened, total_flow=total_flow,
-                        released_so_far=released_so_far, last_flow_change_min=last_flow_change_min)
-                )
-            end
+    convert.(Int64, dist), paths
+end
+
+test_graph_dist, test_graph_paths = fw(test_graph)
+graph_dist, graph_paths = fw(graph)
+
+function get_non_zero_flow_valves(graph::VecGraph)::Vector{Int}
+    @pipe enumerate(graph) |> collect |> filter(id_and_v -> id_and_v[2].flow > 0, _) |> first.(_)
+end
+
+test_graph_non_zero_flow_valves = get_non_zero_flow_valves(test_graph)
+graph_non_zero_flow_valves = get_non_zero_flow_valves(graph)
+
+mutable struct State
+    current_id::Int
+    to_open::Vector{Int}
+
+    minute::Int
+    flow::Int
+    released_pressure::Int
+end
+
+"""
+Opens the current valve `state.current_id`,
+updating the state up to the end of the open valve minute.
+Remove the opened valve from the set of valves yet to open.
+"""
+function open_valve!(state::State, graph::VecGraph)
+    state.minute += 1
+    state.released_pressure += state.flow
+    state.flow += graph[state.current_id].flow
+
+    deleteat!(state.to_open, findall(id -> id == state.current_id, state.to_open))
+    return
+end
+
+"""
+Moves from `state.current_id` valve to `dest_id` valve,
+updating the state up to the end of the arrival minute.
+
+Uses `graph_dist` from Floyd-Warshall to avoid recomputing / searching for the path
+and to apply changes to `released_pressure`` and `minute`` in one step.
+"""
+function move_to!(state::State, graph_dist::Matrix{Int}, dest_id::Int)
+    steps = graph_dist[state.current_id, dest_id]
+    state.minute += steps
+    state.released_pressure += steps * state.flow
+
+    state.current_id = dest_id
+end
+
+get_score(state::State, max_minutes::Int) = state.released_pressure + (max_minutes - state.minute) * state.flow
+
+function p1(graph::VecGraph; start_id::Int=1, max_minutes=30)
+    graph_dist, _graph_paths = fw(graph)
+    non_zero_flow_valves = get_non_zero_flow_valves(graph)
+
+    scores = Set()
+    queue = [State(start_id, deepcopy(non_zero_flow_valves), 0, 0, 0)]
+
+    while !isempty(queue)
+        state = popfirst!(queue)
+
+        if state.minute >= max_minutes
+            # time expired
+            push!(scores, state.released_pressure + (max_minutes - state.minute) * state.flow)
+        elseif isempty(state.to_open)
+            # no more valves to open => compute the rest of the time and save the score
+            push!(scores, get_score(state, max_minutes))
         else
-            # avoid double counting because of the eager minute addition when opening a valve
-            if minute > max_minutes
-                released_so_far -= total_flow
+            # otherwise, add all reachable next open valve candidates
+            remaining_time = max_minutes - state.minute
+
+            more_valves_will_be_opened = false
+            for next_id = state.to_open
+                # doesn't make sense to run to something we cannot reach
+                if graph_dist[state.current_id, next_id] < remaining_time
+                    new_state = deepcopy(state)
+                    more_valves_will_be_opened = true
+
+                    move_to!(new_state, graph_dist, next_id)
+                    open_valve!(new_state, graph)
+
+                    push!(queue, new_state)
+                end
             end
-            push!(scores, released_so_far)
+
+            # if no more valves can be opened, we calculate the score
+            if !more_valves_will_be_opened
+                push!(scores, get_score(state, max_minutes))
+            end
         end
     end
 
     scores |> maximum
 end
 
-# graph = test_graph
-# paths = p1(graph, "AA")
-# 6 - 206 paths
-# 7 - 471 paths
-# @time paths = bfs(graph, "AA", max_steps=8)
-# 1111
-# @time paths = bfs(graph, "AA", max_steps=9)
-# 2537-element
-# 10 - 5970
-
-# all_paths = Set()
-# for valve_id = keys(graph)
-#     union!(all_paths, bfs(graph, valve_id))
-# end
-
-
-# function score_path(path, graph)
-#     minute, total_flow, released_pressure = 0, 0, 0
-
-#     for valve_id = path
-#         flow = graph[valve_id].flow
-#         if flow > 0
-#             @show minute += 1
-#             @show released_pressure += total_flow
-
-#             @show minute += 1
-#             @show total_flow += flow
-#             @show released_pressure += total_flow
-#         else
-#             @show minute += 1
-#             @show released_pressure += total_flow
-#         end
-#     end
-
-#     released_pressure += (30 - minute) * total_flow
-#     return (released_pressure=released_pressure, total_flow=total_flow)
-# end
-
-# #  map(path -> score_path(path, graph), paths)
+@assert p1(test_graph, max_minutes=3) == 20
+@time @assert @show p1(test_graph) == 1651
+@time @assert @show p1(graph) == 2056
