@@ -432,6 +432,164 @@ cycle_length = curr_n_stopped - prev_n_stopped
 ```
 
 ```elixir
+world = World.new(test_jets) |> World.advance_till_stopped(curr_n_stopped)
+{world.highest_y, world.stopped_rocks}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{-98, 63}
+```
+
+```elixir
+world = World.new(test_jets) |> World.advance_till_stopped(curr_n_stopped + cycle_length)
+{world.highest_y, world.stopped_rocks}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{-153, 99}
+```
+
+```elixir
+153 - 98
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+55
+```
+
+```elixir
+world = World.new(test_jets) |> World.advance_till_stopped(curr_n_stopped + cycle_length * 2)
+{world.highest_y, world.stopped_rocks}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{-206, 135}
+```
+
+```elixir
+206 - 153
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+53
+```
+
+```elixir
+world = World.new(test_jets) |> World.advance_till_stopped(curr_n_stopped + cycle_length * 3)
+{world.highest_y, world.stopped_rocks}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{-259, 171}
+```
+
+```elixir
+259 - 206
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+53
+```
+
+```elixir
+world = World.new(test_jets) |> World.advance_till_stopped(curr_n_stopped + cycle_length * 4)
+{world.highest_y, world.stopped_rocks}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{-314, 207}
+```
+
+```elixir
+314 - 259
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+55
+```
+
+```elixir
+world = World.new(test_jets) |> World.advance_till_stopped(curr_n_stopped + cycle_length * 5)
+{world.highest_y, world.stopped_rocks}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{-370, 243}
+```
+
+```elixir
+370 - 314
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+56
+```
+
+```elixir
+world = World.new(test_jets) |> World.advance_till_stopped(curr_n_stopped + cycle_length * 6)
+{world.highest_y, world.stopped_rocks}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{-427, 279}
+```
+
+```elixir
+427 - 370
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+57
+```
+
+```elixir
+world = World.new(test_jets) |> World.advance_till_stopped(curr_n_stopped + cycle_length * 7)
+{world.highest_y, world.stopped_rocks}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{-480, 315}
+```
+
+```elixir
+480 - 427
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+53
+```
+
+```elixir
 cyclic_height_increase =
   div(1_000_000_000_000, cycle_length) * height_increase + abs(prev_highest_y)
 ```
