@@ -216,7 +216,6 @@ function p2(graph::VecGraph; start_id::Int=1, max_minutes=26)
 
     scores = Set()
     queue = [State2([start_id, start_id], deepcopy(non_zero_flow_valves), [0, 0], [0, 0], [0, 0])]
-    positions = Set()
 
     while !isempty(queue)
         state = popfirst!(queue)
@@ -244,25 +243,17 @@ function p2(graph::VecGraph; start_id::Int=1, max_minutes=26)
                     # elephant
                     remaining_time = max_minutes - state.minutes[2]
                     for next_id = new_state.to_open
-                        if (
-                            !(
-                                all(state.minutes .<= 2) &&
-                                (next_id, new_state.current_ids[1]) ∈ positions
-                            ) && graph_dist[state.current_ids[2], next_id] < remaining_time
-                        )
+                        if graph_dist[state.current_ids[2], next_id] < remaining_time
                             new_new_state = deepcopy(new_state)
 
                             move_to!(new_new_state, graph_dist, next_id, 2)
                             open_valve!(new_new_state, graph, 2)
 
                             push!(queue, new_new_state)
-                            push!(positions, (new_new_state.current_ids[1], next_id))
                         end
                     end
                 end
             end
-
-            empty!(positions)
 
             # if no more valves can be opened, we calculate the score
             if !more_valves_will_be_opened
@@ -302,3 +293,11 @@ end
 
 # julia> @time p2(graph, max_minutes=20)
 #   0.998779 seconds (8.94 M allocations: 687.624 MiB, 21.92% gc time)
+
+
+# julia> @time p2(graph, max_minutes=26)
+# 350.881363 seconds (1.33 G allocations: 89.751 GiB, 44.14% gc time)
+
+# 2502 is too low for part2
+
+# TODO: mirror positions optimization failed, so it seems we need to do some "reduce allocations" fun
