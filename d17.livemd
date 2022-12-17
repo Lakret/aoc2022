@@ -1,3 +1,5 @@
+<!-- livebook:{"persist_outputs":true} -->
+
 # Day 17
 
 ## Section
@@ -6,8 +8,23 @@
 test_jets = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>" |> String.graphemes()
 ```
 
+<!-- livebook:{"output":true} -->
+
+```
+[">", ">", ">", "<", "<", ">", "<", ">", ">", "<", "<", "<", ">", ">", "<", ">", ">", ">", "<", "<",
+ "<", ">", ">", ">", "<", "<", "<", ">", "<", "<", "<", ">", ">", "<", ">", ">", "<", "<", ">", ">"]
+```
+
 ```elixir
 jets = File.read!("inputs/d17") |> String.trim_trailing() |> String.graphemes()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[">", "<", "<", "<", "<", ">", ">", "<", "<", ">", "<", "<", "<", "<", ">", ">", ">", ">", "<", "<",
+ ">", "<", "<", "<", ">", ">", ">", "<", "<", ">", ">", ">", ">", "<", "<", "<", "<", ">", ">", ">",
+ "<", "<", "<", ">", "<", "<", "<", "<", ">", ">", ...]
 ```
 
 ```elixir
@@ -24,6 +41,12 @@ defmodule Coords do
   def left(coords = %__MODULE__{x: x}), do: %{coords | x: x - 1}
   def right(coords = %__MODULE__{x: x}), do: %{coords | x: x + 1}
 end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, Coords, <<70, 79, 82, 49, 0, 0, 12, ...>>, {:right, 1}}
 ```
 
 ```elixir
@@ -110,6 +133,12 @@ defmodule Rock do
 end
 ```
 
+<!-- livebook:{"output":true} -->
+
+```
+{:module, Rock, <<70, 79, 82, 49, 0, 0, 22, ...>>, {:all_coords, 1}}
+```
+
 ```elixir
 defmodule World do
   defstruct active_rock: nil,
@@ -152,7 +181,6 @@ defmodule World do
   end
 
   def add_rock(world = %__MODULE__{highest_y: highest_y, next_shape: next_shape}) do
-    IO.inspect(:add_rock)
     anchor = %Coords{x: 2, y: highest_y - 4}
     rock = Rock.new(anchor, next_shape)
 
@@ -167,8 +195,6 @@ defmodule World do
           jet_idx: jet_idx
         }
       ) do
-    IO.inspect(:push)
-
     new_rock =
       case Enum.at(jets, jet_idx) do
         "<" -> Rock.left(rock)
@@ -198,7 +224,6 @@ defmodule World do
           stationary_formation: stationary_formation
         }
       ) do
-    IO.inspect(:fall)
     new_rock = Rock.down(rock)
 
     if new_rock.anchor.y == world.floor_level do
@@ -231,8 +256,6 @@ defmodule World do
     highest_y =
       Enum.map(coords, fn coord -> coord.y end)
       |> Enum.find(highest_y, fn y -> y < highest_y end)
-
-    IO.inspect({:new_highest_y, highest_y})
 
     stationary_formation = MapSet.union(stationary_formation, coords)
 
@@ -274,14 +297,34 @@ defmodule World do
 end
 ```
 
+<!-- livebook:{"output":true} -->
+
+```
+{:module, World, <<70, 79, 82, 49, 0, 0, 36, ...>>, {:draw, 1}}
+```
+
 ```elixir
 world = World.new(test_jets)
 World.draw(world)
 ```
 
-```elixir
-world = World.advance(world)
-World.draw(world)
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ```elixir
@@ -289,9 +332,24 @@ world = World.advance(world)
 World.draw(world)
 ```
 
-```elixir
-world = World.advance(world)
-World.draw(world)
+<!-- livebook:{"output":true} -->
+
+```
+:add_rock
+|.......|
+|.......|
+|.......|
+|..@@@@.|
+|.......|
+|.......|
+|.......|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ```elixir
@@ -299,9 +357,24 @@ world = World.advance(world)
 World.draw(world)
 ```
 
-```elixir
-world = World.advance(world)
-World.draw(world)
+<!-- livebook:{"output":true} -->
+
+```
+:push
+|.......|
+|.......|
+|.......|
+|...@@@@|
+|.......|
+|.......|
+|.......|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ```elixir
@@ -309,9 +382,24 @@ world = World.advance(world)
 World.draw(world)
 ```
 
-```elixir
-world = World.advance(world)
-World.draw(world)
+<!-- livebook:{"output":true} -->
+
+```
+:fall
+|.......|
+|.......|
+|.......|
+|.......|
+|...@@@@|
+|.......|
+|.......|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ```elixir
@@ -319,9 +407,24 @@ world = World.advance(world)
 World.draw(world)
 ```
 
-```elixir
-world = World.advance(world)
-World.draw(world)
+<!-- livebook:{"output":true} -->
+
+```
+:push
+|.......|
+|.......|
+|.......|
+|.......|
+|...@@@@|
+|.......|
+|.......|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ```elixir
@@ -329,9 +432,24 @@ world = World.advance(world)
 World.draw(world)
 ```
 
-```elixir
-world = World.advance(world)
-World.draw(world)
+<!-- livebook:{"output":true} -->
+
+```
+:fall
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|...@@@@|
+|.......|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ```elixir
@@ -339,9 +457,24 @@ world = World.advance(world)
 World.draw(world)
 ```
 
-```elixir
-world = World.advance(world)
-World.draw(world)
+<!-- livebook:{"output":true} -->
+
+```
+:push
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|...@@@@|
+|.......|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ```elixir
@@ -349,9 +482,24 @@ world = World.advance(world)
 World.draw(world)
 ```
 
-```elixir
-world = World.advance(world)
-World.draw(world)
+<!-- livebook:{"output":true} -->
+
+```
+:fall
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|...@@@@|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ```elixir
@@ -359,9 +507,24 @@ world = World.advance(world)
 World.draw(world)
 ```
 
-```elixir
-world = World.advance(world)
-World.draw(world)
+<!-- livebook:{"output":true} -->
+
+```
+:push
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|..@@@@.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
 
 ```elixir
@@ -369,7 +532,289 @@ world = World.advance(world)
 World.draw(world)
 ```
 
+<!-- livebook:{"output":true} -->
+
+```
+:fall
+{:new_highest_y, 3}
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
 ```elixir
 world = World.advance(world)
 World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:add_rock
+|.......|
+|...@...|
+|..@@@..|
+|...@...|
+|.......|
+|.......|
+|.......|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:push
+|.......|
+|..@....|
+|.@@@...|
+|..@....|
+|.......|
+|.......|
+|.......|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:fall
+|.......|
+|.......|
+|..@....|
+|.@@@...|
+|..@....|
+|.......|
+|.......|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:push
+|.......|
+|.......|
+|...@...|
+|..@@@..|
+|...@...|
+|.......|
+|.......|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:fall
+|.......|
+|.......|
+|.......|
+|...@...|
+|..@@@..|
+|...@...|
+|.......|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:push
+|.......|
+|.......|
+|.......|
+|..@....|
+|.@@@...|
+|..@....|
+|.......|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:fall
+|.......|
+|.......|
+|.......|
+|.......|
+|..@....|
+|.@@@...|
+|..@....|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:push
+|.......|
+|.......|
+|.......|
+|.......|
+|...@...|
+|..@@@..|
+|...@...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:fall
+{:new_highest_y, 1}
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|...#...|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:add_rock
+|.......|
+|....@..|
+|....@..|
+|..@@@..|
+|.......|
+|.......|
+|...#...|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
 ```
