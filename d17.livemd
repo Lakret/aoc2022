@@ -363,9 +363,9 @@ defmodule D17 do
   Note, that the height computation needs to account for: 
 
   - height increase before the first cycle starts (prev_highest_y)
-  - height increase via cycles `((@p2_rocks - prev_n_stopped) mod cycle_length) * height_increase`, 
+  - height increase via cycles `((@p2_rocks - prev_n_stopped) div cycle_length) * height_increase`, 
   where `prev_n_stopped` is the offset before the first cycle starts
-  - remaining steps before `@p2_rocks` is reached: `((@p2_rocks - prev_n_stopped) rem cycle_length)`.
+  - remaining steps before `@p2_rocks` is reached: `((@p2_rocks - prev_n_stopped) mod cycle_length)`.
   We can compute that height increase by going the remaining steps after the end of the first found cycle.
   """
   def p2(jets) do
