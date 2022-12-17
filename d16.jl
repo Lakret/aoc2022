@@ -129,11 +129,15 @@ end
 
 get_score(state::State, max_minutes::Int) = state.released_pressure + (max_minutes - state.minute) * state.flow
 
-function p1(graph::VecGraph; start_id::Int=1, max_minutes=30)
+function p1(graph::VecGraph; valves_to_open=nothing, start_id::Int=1, max_minutes=30)
     graph_dist, _graph_paths = fw(graph)
-    non_zero_flow_valves = get_non_zero_flow_valves(graph)
+    if isnothing(valves_to_open)
+        non_zero_flow_valves = get_non_zero_flow_valves(graph)
+    else
+        non_zero_flow_valves = deepcopy(valves_to_open)
+    end
 
-    scores = Set()
+    best_score = 0
     queue = [State(start_id, deepcopy(non_zero_flow_valves), 0, 0, 0)]
 
     while !isempty(queue)
@@ -141,10 +145,12 @@ function p1(graph::VecGraph; start_id::Int=1, max_minutes=30)
 
         if state.minute >= max_minutes
             # time expired
-            push!(scores, state.released_pressure + (max_minutes - state.minute) * state.flow)
+            score = get_score(state, max_minutes)
+            best_score = max(score, best_score)
         elseif isempty(state.to_open)
             # no more valves to open => compute the rest of the time and save the score
-            push!(scores, get_score(state, max_minutes))
+            score = get_score(state, max_minutes)
+            best_score = max(score, best_score)
         else
             # otherwise, add all reachable next open valve candidates
             remaining_time = max_minutes - state.minute
@@ -165,15 +171,17 @@ function p1(graph::VecGraph; start_id::Int=1, max_minutes=30)
 
             # if no more valves can be opened, we calculate the score
             if !more_valves_will_be_opened
-                push!(scores, get_score(state, max_minutes))
+                # no more valves to open => compute the rest of the time and save the score
+                score = get_score(state, max_minutes)
+                best_score = max(score, best_score)
             end
         end
     end
 
-    scores |> maximum
+    best_score
 end
 
-@assert p1(test_graph, max_minutes=3) == 20
+@assert p1(test_graph, max_minutes=3)[1] == 20
 @time @assert @show p1(test_graph) == 1651
 @time @assert @show p1(graph) == 2056
 
@@ -214,17 +222,24 @@ function p2(graph::VecGraph; start_id::Int=1, max_minutes=26)
     graph_dist, _graph_paths = fw(graph)
     non_zero_flow_valves = get_non_zero_flow_valves(graph)
 
-    scores = Set()
+    best_score = 0
     queue = [State2([start_id, start_id], deepcopy(non_zero_flow_valves), [0, 0], [0, 0], [0, 0])]
+    iteration = 0
 
     while !isempty(queue)
+        # cut underperformers to limit RAM consumption
+        if iteration % 2_000_000 == 0
+            sort!(queue, by=(state -> get_score(state, max_minutes)), rev=true)
+            queue = first(queue, 300_000)
+        end
+
         state = popfirst!(queue)
 
         if all(state.minutes .>= max_minutes)
-            push!(scores, get_score(state, max_minutes))
+            best_score = max(get_score(state, max_minutes), best_score)
         elseif isempty(state.to_open)
             # no more valves to open => compute the rest of the time and save the score
-            push!(scores, get_score(state, max_minutes))
+            best_score = max(get_score(state, max_minutes), best_score)
         else
             # otherwise, add all reachable next open valve candidates for each actor
             more_valves_will_be_opened = false
@@ -249,6 +264,7 @@ function p2(graph::VecGraph; start_id::Int=1, max_minutes=26)
                             move_to!(new_new_state, graph_dist, next_id, 2)
                             open_valve!(new_new_state, graph, 2)
 
+                            iteration += 1
                             push!(queue, new_new_state)
                         end
                     end
@@ -257,23 +273,20 @@ function p2(graph::VecGraph; start_id::Int=1, max_minutes=26)
 
             # if no more valves can be opened, we calculate the score
             if !more_valves_will_be_opened
-                push!(scores, get_score(state, max_minutes))
+                best_score = max(get_score(state, max_minutes), best_score)
             end
         end
     end
 
-    scores |> maximum
+    println(iteration)
+    best_score
 end
 
-@time @assert @show @time p2(test_graph, max_minutes=26) == 1707
-# @time @assert @show p2(graph, max_minutes=26) == 2056
 
-# julia> @time p2(test_graph, max_minutes=26) == 1707
-#   0.001917 seconds (25.95 k allocations: 1.969 MiB)
+@time p2(test_graph)
+@time p2(graph)
 
-# julia> @time p2(test_graph, max_minutes=26)
-#   0.008686 seconds (27.06 k allocations: 2.054 MiB)
-
+# 590000
 
 # julia> @time p2(graph, max_minutes=20)
 #  12.970624 seconds (72.10 M allocations: 5.537 GiB)
@@ -299,5 +312,3 @@ end
 # 350.881363 seconds (1.33 G allocations: 89.751 GiB, 44.14% gc time)
 
 # 2502 is too low for part2
-
-# TODO: mirror positions optimization failed, so it seems we need to do some "reduce allocations" fun

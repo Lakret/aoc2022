@@ -1,0 +1,15 @@
+# Day 17
+
+## Section
+
+```elixir
+input_test = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>" |> String.graphemes()
+```
+
+```elixir
+input = File.read!("inputs/d17") |> String.trim_trailing() |> String.graphemes()
+```
+
+```elixir
+
+```
