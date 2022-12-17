@@ -2,7 +2,8 @@ using Pipe
 
 # Part 1 idea:
 # 1. preproccess the graph with FW to find shortest distances between all nodes
-# 2. all candidate for optimality paths can be expressed as a permutation of non-zero flow valves
+# 2. all candidate for optimality paths can be expressed as a permutation of non-zero flow valves -
+# we can generate them using breadth-first search modification
 # 3. for each permutation, compute the score using the shortest distances to speed up computation for no change
 # moments
 # + use vectors and integer vertex ids
@@ -175,3 +176,103 @@ end
 @assert p1(test_graph, max_minutes=3) == 20
 @time @assert @show p1(test_graph) == 1651
 @time @assert @show p1(graph) == 2056
+
+
+mutable struct State2
+    current_ids::Vector{Int}
+    to_open::Vector{Int}
+
+    minutes::Vector{Int}
+    flows::Vector{Int}
+    released_pressure::Vector{Int}
+end
+
+function open_valve!(state::State2, graph::VecGraph, actor::Int)
+    vertex_id = state.current_ids[actor]
+
+    state.minutes[actor] += 1
+    state.released_pressure[actor] += state.flows[actor]
+    state.flows[actor] += graph[vertex_id].flow
+
+    deleteat!(state.to_open, findall(id -> id == vertex_id, state.to_open))
+    return
+end
+
+function move_to!(state::State2, graph_dist::Matrix{Int}, dest_id::Int, actor::Int)
+    steps = graph_dist[state.current_ids[actor], dest_id]
+    state.minutes[actor] += steps
+    state.released_pressure[actor] += steps * state.flows[actor]
+
+    state.current_ids[actor] = dest_id
+end
+
+function get_score(state::State2, max_minutes::Int)
+    sum(state.released_pressure .+ (max_minutes .- state.minutes) .* state.flows)
+end
+
+state = State2([1, 1], deepcopy(test_graph_non_zero_flow_valves), [0, 0], [0, 0], [0, 0])
+move_to!(state, test_graph_dist, 10, 1)
+open_valve!(state, test_graph, 1)
+move_to!(state, test_graph_dist, 4, 2)
+open_valve!(state, test_graph, 2)
+get_score(state, 5)
+
+function p2(graph::VecGraph; start_id::Int=1, max_minutes=26)
+    graph_dist, _graph_paths = fw(graph)
+    non_zero_flow_valves = get_non_zero_flow_valves(graph)
+
+    scores = Set()
+    queue = [State2([start_id, start_id], deepcopy(non_zero_flow_valves), [0, 0], [0, 0], [0, 0])]
+
+    while !isempty(queue)
+        state = popfirst!(queue)
+
+        if all(state.minutes .>= max_minutes)
+            # println(state)
+            push!(scores, get_score(state, max_minutes))
+        elseif isempty(state.to_open)
+            # no more valves to open => compute the rest of the time and save the score
+            push!(scores, get_score(state, max_minutes))
+        else
+            # otherwise, add all reachable next open valve candidates for each actor
+            more_valves_will_be_opened = false
+
+            # you
+            remaining_time = max_minutes - state.minutes[1]
+            for next_id = state.to_open
+                # doesn't make sense to run to something we cannot reach
+                if graph_dist[state.current_ids[1], next_id] < remaining_time
+                    new_state = deepcopy(state)
+                    more_valves_will_be_opened = true
+
+                    move_to!(new_state, graph_dist, next_id, 1)
+                    open_valve!(new_state, graph, 1)
+
+                    # elephant
+                    remaining_time = max_minutes - state.minutes[2]
+                    for next_id = new_state.to_open
+                        if graph_dist[state.current_ids[2], next_id] < remaining_time
+                            new_new_state = deepcopy(new_state)
+
+                            move_to!(new_new_state, graph_dist, next_id, 2)
+                            open_valve!(new_new_state, graph, 2)
+
+                            # println(new_new_state)
+                            push!(queue, new_new_state)
+                        end
+                    end
+                end
+            end
+
+            # if no more valves can be opened, we calculate the score
+            if !more_valves_will_be_opened
+                push!(scores, get_score(state, max_minutes))
+            end
+        end
+    end
+
+    scores |> maximum
+end
+
+@time @assert @show p2(test_graph, max_minutes=26) == 1707
+@time @assert @show p2(graph, max_minutes=26) == 2056
