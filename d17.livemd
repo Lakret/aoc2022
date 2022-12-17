@@ -188,21 +188,33 @@ defmodule World do
     |> Enum.find(fn world -> world.next_step == :add_rock end)
   end
 
-  def add_rock(world = %__MODULE__{highest_y: highest_y, next_shape: next_shape}) do
+  def advance_till_stopped(world = %__MODULE__{}, n_stopped) when is_integer(n_stopped) do
+    advance_till_stopped(world, n_stopped, 0)
+  end
+
+  defp advance_till_stopped(world, n_stopped, n_stopped), do: world
+
+  defp advance_till_stopped(world, n_stopped, n) do
+    world = advance(world)
+    n = if world.stopped_rocks > n, do: n + 1, else: n
+    advance_till_stopped(world, n_stopped, n)
+  end
+
+  defp add_rock(world = %__MODULE__{highest_y: highest_y, next_shape: next_shape}) do
     anchor = %Coords{x: 2, y: highest_y - 4}
     rock = Rock.new(anchor, next_shape)
 
     %{world | active_rock: rock, next_shape: Rock.next_shape(next_shape), next_step: :push}
   end
 
-  def push(
-        world = %__MODULE__{
-          active_rock: rock = %Rock{},
-          stationary_formation: stationary_formation,
-          jets: jets,
-          jet_idx: jet_idx
-        }
-      ) do
+  defp push(
+         world = %__MODULE__{
+           active_rock: rock = %Rock{},
+           stationary_formation: stationary_formation,
+           jets: jets,
+           jet_idx: jet_idx
+         }
+       ) do
     new_rock =
       case Enum.at(jets, jet_idx) do
         "<" -> Rock.left(rock)
@@ -226,12 +238,12 @@ defmodule World do
     end
   end
 
-  def fall(
-        world = %__MODULE__{
-          active_rock: rock = %Rock{},
-          stationary_formation: stationary_formation
-        }
-      ) do
+  defp fall(
+         world = %__MODULE__{
+           active_rock: rock = %Rock{},
+           stationary_formation: stationary_formation
+         }
+       ) do
     new_rock = Rock.down(rock)
 
     if new_rock.anchor.y == world.floor_level do
@@ -251,14 +263,14 @@ defmodule World do
     end
   end
 
-  def mark_active_as_stationary(
-        world = %__MODULE__{
-          active_rock: rock = %Rock{},
-          highest_y: highest_y,
-          stationary_formation: stationary_formation,
-          stopped_rocks: stopped_rocks
-        }
-      ) do
+  defp mark_active_as_stationary(
+         world = %__MODULE__{
+           active_rock: rock = %Rock{},
+           highest_y: highest_y,
+           stationary_formation: stationary_formation,
+           stopped_rocks: stopped_rocks
+         }
+       ) do
     coords = Rock.all_coords(rock)
 
     coords_highest_y = Enum.map(coords, fn coord -> coord.y end) |> Enum.min()
@@ -307,7 +319,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, World, <<70, 79, 82, 49, 0, 0, 37, ...>>, {:draw, 1}}
+{:module, World, <<70, 79, 82, 49, 0, 0, 38, ...>>, {:draw, 1}}
 ```
 
 ```elixir
@@ -388,269 +400,17 @@ World.draw(world)
 ```
 
 ```elixir
-world = world |> World.advance()
+world = World.advance_till_next_falling(world) |> World.advance()
 World.draw(world)
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-|.......|
-|.....@.|
-|.....@.|
-|...@@@.|
-|.......|
-|.......|
-|.......|
-|...#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = world |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.....@.|
-|.....@.|
-|...@@@.|
-|.......|
-|.......|
-|...#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = world |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|....@..|
-|....@..|
-|..@@@..|
-|.......|
-|.......|
-|...#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = world |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.......|
-|....@..|
-|....@..|
-|..@@@..|
-|.......|
-|...#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = world |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.......|
-|...@...|
-|...@...|
-|.@@@...|
-|.......|
-|...#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = world |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.......|
-|.......|
-|...@...|
-|...@...|
-|.@@@...|
-|...#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = world |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.......|
-|.......|
 |..@....|
 |..@....|
-|@@@....|
-|...#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = world |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.......|
-|.......|
-|.......|
 |..@....|
 |..@....|
-|@@@#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = world |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.......|
-|.......|
-|.......|
-|..@....|
-|..@....|
-|@@@#...|
-|..###..|
-|...#...|
-|..####.|
-+-------+
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
-```
-
-```elixir
-world = world |> World.advance()
-World.draw(world)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-|.......|
-|.......|
-|.......|
-|.......|
 |.......|
 |.......|
 |.......|
@@ -670,7 +430,6 @@ World.draw(world)
 ```
 
 ```elixir
-# TODO: fails
 world = World.advance_till_next_falling(world) |> World.advance()
 World.draw(world)
 ```
@@ -927,42 +686,23 @@ World.draw(world)
 ```
 
 ```elixir
-
+world = World.new(test_jets) |> World.advance_till_stopped(2022)
+abs(world.highest_y) + world.floor_level
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-|.......|
-|...@...|
-|..@@@..|
-|...@...|
-|.......|
-|.......|
-|.......|
-|...####|
-|....#..|
-|....#..|
-|....##.|
-|##..##.|
-|######.|
-|.###...|
-|..#....|
-|.####..|
-|....##.|
-|....##.|
-|....#..|
-|..#.#..|
-|..#.#..|
-|#####..|
-|..###..|
-|...#...|
-|..####.|
-+-------+
+3068
+```
+
+```elixir
+world = World.new(jets) |> World.advance_till_stopped(2022)
+abs(world.highest_y) + world.floor_level
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-:ok
+3179
 ```
