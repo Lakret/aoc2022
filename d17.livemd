@@ -261,9 +261,8 @@ defmodule World do
       ) do
     coords = Rock.all_coords(rock)
 
-    highest_y =
-      Enum.map(coords, fn coord -> coord.y end)
-      |> Enum.find(highest_y, fn y -> y < highest_y end)
+    coords_highest_y = Enum.map(coords, fn coord -> coord.y end) |> Enum.min()
+    highest_y = min(highest_y, coords_highest_y)
 
     stationary_formation = MapSet.union(stationary_formation, coords)
 
@@ -308,7 +307,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, World, <<70, 79, 82, 49, 0, 0, 38, ...>>, {:draw, 1}}
+{:module, World, <<70, 79, 82, 49, 0, 0, 37, ...>>, {:draw, 1}}
 ```
 
 ```elixir
@@ -336,7 +335,7 @@ World.draw(world)
 ```
 
 ```elixir
-world = world |> World.advance_till_next_falling()
+world = world |> World.advance_till_next_falling() |> World.advance()
 World.draw(world)
 ```
 
@@ -344,9 +343,9 @@ World.draw(world)
 
 ```
 |.......|
-|.......|
-|.......|
-|.......|
+|...@...|
+|..@@@..|
+|...@...|
 |.......|
 |.......|
 |.......|
@@ -361,7 +360,7 @@ World.draw(world)
 ```
 
 ```elixir
-world = world |> World.advance_till_next_falling()
+world = world |> World.advance_till_next_falling() |> World.advance()
 World.draw(world)
 ```
 
@@ -369,8 +368,9 @@ World.draw(world)
 
 ```
 |.......|
-|.......|
-|.......|
+|....@..|
+|....@..|
+|..@@@..|
 |.......|
 |.......|
 |.......|
@@ -388,7 +388,7 @@ World.draw(world)
 ```
 
 ```elixir
-world = World.advance_till_next_falling(world)
+world = world |> World.advance()
 World.draw(world)
 ```
 
@@ -396,13 +396,12 @@ World.draw(world)
 
 ```
 |.......|
+|.....@.|
+|.....@.|
+|...@@@.|
 |.......|
 |.......|
 |.......|
-|.......|
-|...#...|
-|...#...|
-|.###...|
 |...#...|
 |..###..|
 |...#...|
@@ -417,7 +416,7 @@ World.draw(world)
 ```
 
 ```elixir
-world = World.advance_till_next_falling(world)
+world = world |> World.advance()
 World.draw(world)
 ```
 
@@ -426,16 +425,11 @@ World.draw(world)
 ```
 |.......|
 |.......|
+|.....@.|
+|.....@.|
+|...@@@.|
 |.......|
 |.......|
-|.......|
-|.......|
-|.......|
-|.#.....|
-|.#.....|
-|.#.#...|
-|.#.#...|
-|.###...|
 |...#...|
 |..###..|
 |...#...|
@@ -450,7 +444,7 @@ World.draw(world)
 ```
 
 ```elixir
-world = World.advance_till_next_falling(world)
+world = world |> World.advance()
 World.draw(world)
 ```
 
@@ -459,16 +453,11 @@ World.draw(world)
 ```
 |.......|
 |.......|
+|....@..|
+|....@..|
+|..@@@..|
 |.......|
 |.......|
-|.......|
-|.......|
-|.......|
-|.###...|
-|.###...|
-|.#.#...|
-|.#.#...|
-|.###...|
 |...#...|
 |..###..|
 |...#...|
@@ -483,7 +472,7 @@ World.draw(world)
 ```
 
 ```elixir
-world = World.advance_till_next_falling(world)
+world = world |> World.advance()
 World.draw(world)
 ```
 
@@ -493,16 +482,10 @@ World.draw(world)
 |.......|
 |.......|
 |.......|
+|....@..|
+|....@..|
+|..@@@..|
 |.......|
-|.......|
-|.......|
-|.......|
-|..####.|
-|.###...|
-|.###...|
-|.#.#...|
-|.#.#...|
-|.###...|
 |...#...|
 |..###..|
 |...#...|
@@ -517,7 +500,7 @@ World.draw(world)
 ```
 
 ```elixir
-world = World.advance_till_next_falling(world)
+world = world |> World.advance()
 World.draw(world)
 ```
 
@@ -527,17 +510,10 @@ World.draw(world)
 |.......|
 |.......|
 |.......|
+|...@...|
+|...@...|
+|.@@@...|
 |.......|
-|.......|
-|.......|
-|.#.....|
-|###....|
-|.#####.|
-|.###...|
-|.###...|
-|.#.#...|
-|.#.#...|
-|.###...|
 |...#...|
 |..###..|
 |...#...|
@@ -552,7 +528,7 @@ World.draw(world)
 ```
 
 ```elixir
-world = World.advance_till_next_falling(world)
+world = world |> World.advance()
 World.draw(world)
 ```
 
@@ -561,20 +537,424 @@ World.draw(world)
 ```
 |.......|
 |.......|
+|.......|
+|.......|
+|...@...|
+|...@...|
+|.@@@...|
+|...#...|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = world |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|.......|
+|.......|
+|.......|
+|..@....|
+|..@....|
+|@@@....|
+|...#...|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = world |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|..@....|
+|..@....|
+|@@@#...|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = world |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|..@....|
+|..@....|
+|@@@#...|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = world |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|.......|
+|..#....|
+|..#....|
+|####...|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+# TODO: fails
+world = World.advance_till_next_falling(world) |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|.......|
+|..@@...|
+|..@@...|
 |.......|
 |.......|
 |.......|
 |....#..|
+|..#.#..|
+|..#.#..|
+|#####..|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance_till_next_falling(world) |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|.......|
+|.......|
+|..@@@@.|
+|.......|
+|.......|
+|.......|
+|....##.|
+|....##.|
 |....#..|
+|..#.#..|
+|..#.#..|
+|#####..|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance_till_next_falling(world) |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|...@...|
+|..@@@..|
+|...@...|
+|.......|
+|.......|
+|.......|
 |.####..|
-|###....|
-|.#####.|
-|.###...|
-|.###...|
-|.#.#...|
-|.#.#...|
-|.###...|
+|....##.|
+|....##.|
+|....#..|
+|..#.#..|
+|..#.#..|
+|#####..|
+|..###..|
 |...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance_till_next_falling(world) |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|....@..|
+|....@..|
+|..@@@..|
+|.......|
+|.......|
+|.......|
+|..#....|
+|.###...|
+|..#....|
+|.####..|
+|....##.|
+|....##.|
+|....#..|
+|..#.#..|
+|..#.#..|
+|#####..|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance_till_next_falling(world) |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|..@....|
+|..@....|
+|..@....|
+|..@....|
+|.......|
+|.......|
+|.......|
+|.....#.|
+|.....#.|
+|..####.|
+|.###...|
+|..#....|
+|.####..|
+|....##.|
+|....##.|
+|....#..|
+|..#.#..|
+|..#.#..|
+|#####..|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance_till_next_falling(world) |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|.......|
+|..@@...|
+|..@@...|
+|.......|
+|.......|
+|.......|
+|....#..|
+|....#..|
+|....##.|
+|....##.|
+|..####.|
+|.###...|
+|..#....|
+|.####..|
+|....##.|
+|....##.|
+|....#..|
+|..#.#..|
+|..#.#..|
+|#####..|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+world = World.advance_till_next_falling(world) |> World.advance()
+World.draw(world)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|.......|
+|.......|
+|..@@@@.|
+|.......|
+|.......|
+|.......|
+|....#..|
+|....#..|
+|....##.|
+|##..##.|
+|######.|
+|.###...|
+|..#....|
+|.####..|
+|....##.|
+|....##.|
+|....#..|
+|..#.#..|
+|..#.#..|
+|#####..|
+|..###..|
+|...#...|
+|..####.|
++-------+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+```elixir
+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+|.......|
+|...@...|
+|..@@@..|
+|...@...|
+|.......|
+|.......|
+|.......|
+|...####|
+|....#..|
+|....#..|
+|....##.|
+|##..##.|
+|######.|
+|.###...|
+|..#....|
+|.####..|
+|....##.|
+|....##.|
+|....#..|
+|..#.#..|
+|..#.#..|
+|#####..|
 |..###..|
 |...#...|
 |..####.|
