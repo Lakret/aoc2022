@@ -3,13 +3,373 @@
 ## Section
 
 ```elixir
-input_test = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>" |> String.graphemes()
+test_jets = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>" |> String.graphemes()
 ```
 
 ```elixir
-input = File.read!("inputs/d17") |> String.trim_trailing() |> String.graphemes()
+jets = File.read!("inputs/d17") |> String.trim_trailing() |> String.graphemes()
 ```
 
 ```elixir
+defmodule Coords do
+  defstruct x: 0, y: 0
 
+  @type t() :: %__MODULE__{
+          x: integer(),
+          y: integer()
+        }
+
+  def up(coords = %__MODULE__{y: y}), do: %{coords | y: y - 1}
+  def down(coords = %__MODULE__{y: y}), do: %{coords | y: y + 1}
+  def left(coords = %__MODULE__{x: x}), do: %{coords | x: x - 1}
+  def right(coords = %__MODULE__{x: x}), do: %{coords | x: x + 1}
+end
+```
+
+```elixir
+defmodule Rock do
+  @moduledoc """
+  `anchor` is the leftmost bottom point on an imaginary square encasing the rock formation.
+  """
+  defstruct anchor: %Coords{}, shape: :hline
+
+  @shapes [:hline, :plus, :close_quote, :vline, :square]
+  @type rock_shapes() :: :hline | :plus | :close_quote | :vline | :square
+
+  @type t() :: %__MODULE__{
+          anchor: Coords.t(),
+          shape: rock_shapes()
+        }
+
+  def new(anchor, shape) do
+    if shape not in @shapes do
+      raise("unknown shape #{inspect(shape)}.")
+    end
+
+    %__MODULE__{anchor: anchor, shape: shape}
+  end
+
+  def down(rock = %__MODULE__{anchor: anchor}), do: %{rock | anchor: Coords.down(anchor)}
+  def left(rock = %__MODULE__{anchor: anchor}), do: %{rock | anchor: Coords.left(anchor)}
+  def right(rock = %__MODULE__{anchor: anchor}), do: %{rock | anchor: Coords.right(anchor)}
+
+  def next_shape(shape) do
+    case shape do
+      :hline -> :plus
+      :plus -> :close_quote
+      :close_quote -> :vline
+      :vline -> :square
+      :square -> :hline
+    end
+  end
+
+  def all_coords(%__MODULE__{anchor: anchor, shape: :hline}) do
+    c2 = Coords.right(anchor)
+    c3 = Coords.right(c2)
+    c4 = Coords.right(c3)
+
+    MapSet.new([anchor, c2, c3, c4])
+  end
+
+  def all_coords(%__MODULE__{anchor: anchor, shape: :plus}) do
+    h1 = Coords.up(anchor)
+    h2 = Coords.right(h1)
+    h3 = Coords.right(h2)
+
+    v1 = Coords.right(anchor)
+    v3 = Coords.up(h2)
+
+    MapSet.new([h1, h2, h3, v1, v3])
+  end
+
+  def all_coords(%__MODULE__{anchor: anchor, shape: :close_quote}) do
+    h2 = Coords.right(anchor)
+    h3 = Coords.right(h2)
+
+    v2 = Coords.up(h3)
+    v3 = Coords.up(v2)
+
+    MapSet.new([anchor, h2, h3, v2, v3])
+  end
+
+  def all_coords(%__MODULE__{anchor: anchor, shape: :vline}) do
+    c2 = Coords.up(anchor)
+    c3 = Coords.up(c2)
+    c4 = Coords.up(c3)
+
+    MapSet.new([anchor, c2, c3, c4])
+  end
+
+  def all_coords(%__MODULE__{anchor: anchor, shape: :square}) do
+    c2 = Coords.up(anchor)
+    c3 = Coords.right(anchor)
+    c4 = Coords.up(c3)
+
+    MapSet.new([anchor, c2, c3, c4])
+  end
+end
+```
+
+```elixir
+defmodule World do
+  defstruct active_rock: nil,
+            stationary_formation: MapSet.new(),
+            highest_y: 4,
+            floor_level: 4,
+            next_shape: :hline,
+            jets: [],
+            jet_idx: 0,
+            next_step: :add_rock,
+            stopped_rocks: 0
+
+  @type t() :: %__MODULE__{
+          active_rock: Rock.t() | nil,
+          stationary_formation: MapSet.t(),
+          highest_y: integer() | nil,
+          floor_level: non_neg_integer(),
+          next_shape: Rock.rock_shapes(),
+          jets: [String.t()],
+          jet_idx: non_neg_integer(),
+          next_step: atom(),
+          stopped_rocks: 0
+        }
+
+  @width 7
+
+  def new(jets) when is_list(jets), do: %World{jets: jets}
+
+  defp increment_jet_idx(world = %__MODULE__{jets: jets, jet_idx: jet_idx}) do
+    max_jet_idx = length(jets)
+    %{world | jet_idx: rem(jet_idx + 1, max_jet_idx), next_step: :fall}
+  end
+
+  def advance(world = %__MODULE__{next_step: next_step}) do
+    case next_step do
+      :add_rock -> add_rock(world)
+      :push -> push(world)
+      :fall -> fall(world)
+    end
+  end
+
+  def add_rock(world = %__MODULE__{highest_y: highest_y, next_shape: next_shape}) do
+    IO.inspect(:add_rock)
+    anchor = %Coords{x: 2, y: highest_y - 4}
+    rock = Rock.new(anchor, next_shape)
+
+    %{world | active_rock: rock, next_shape: Rock.next_shape(next_shape), next_step: :push}
+  end
+
+  def push(
+        world = %__MODULE__{
+          active_rock: rock = %Rock{},
+          stationary_formation: stationary_formation,
+          jets: jets,
+          jet_idx: jet_idx
+        }
+      ) do
+    IO.inspect(:push)
+
+    new_rock =
+      case Enum.at(jets, jet_idx) do
+        "<" -> Rock.left(rock)
+        ">" -> Rock.right(rock)
+      end
+
+    all_new_coords = Rock.all_coords(new_rock)
+
+    cond do
+      # hit the wall, don't move
+      Enum.any?(all_new_coords, fn %Coords{x: x} -> x < 0 || x >= @width end) ->
+        increment_jet_idx(world)
+
+      # hit stationary rocks, don't move
+      MapSet.intersection(all_new_coords, stationary_formation) |> MapSet.size() != 0 ->
+        increment_jet_idx(world)
+
+      # no obstacles, move
+      true ->
+        %{world | active_rock: new_rock} |> increment_jet_idx()
+    end
+  end
+
+  def fall(
+        world = %__MODULE__{
+          active_rock: rock = %Rock{},
+          stationary_formation: stationary_formation
+        }
+      ) do
+    IO.inspect(:fall)
+    new_rock = Rock.down(rock)
+
+    if new_rock.anchor.y == world.floor_level do
+      # rock fallen to the floor, becomes stationary
+      mark_active_as_stationary(world)
+    else
+      all_new_coords = Rock.all_coords(new_rock)
+      collisions = MapSet.intersection(all_new_coords, stationary_formation)
+
+      if MapSet.size(collisions) != 0 do
+        # collision with stationary rocks detected, becomes stationary
+        mark_active_as_stationary(world)
+      else
+        # no collisions detected, proceeds to fall
+        %{world | active_rock: new_rock, next_step: :push}
+      end
+    end
+  end
+
+  def mark_active_as_stationary(
+        world = %__MODULE__{
+          active_rock: rock = %Rock{},
+          highest_y: highest_y,
+          stationary_formation: stationary_formation,
+          stopped_rocks: stopped_rocks
+        }
+      ) do
+    coords = Rock.all_coords(rock)
+
+    highest_y =
+      Enum.map(coords, fn coord -> coord.y end)
+      |> Enum.find(highest_y, fn y -> y < highest_y end)
+
+    IO.inspect({:new_highest_y, highest_y})
+
+    stationary_formation = MapSet.union(stationary_formation, coords)
+
+    %{
+      world
+      | active_rock: nil,
+        highest_y: highest_y,
+        stationary_formation: stationary_formation,
+        next_step: :add_rock,
+        stopped_rocks: stopped_rocks + 1
+    }
+  end
+
+  def draw(world = %__MODULE__{}) do
+    active_rock_coords = (world.active_rock && Rock.all_coords(world.active_rock)) || MapSet.new()
+
+    for y <- (world.highest_y - 7)..world.floor_level do
+      if y == world.floor_level do
+        IO.puts("+-------+")
+      else
+        line =
+          Enum.reduce(-1..@width, [], fn x, line ->
+            coords = %Coords{x: x, y: y}
+
+            cond do
+              x == -1 || x == @width -> ["|" | line]
+              coords in active_rock_coords -> ["@" | line]
+              coords in world.stationary_formation -> ["#" | line]
+              true -> ["." | line]
+            end
+          end)
+
+        line |> Enum.reverse() |> IO.puts()
+      end
+    end
+
+    :ok
+  end
+end
+```
+
+```elixir
+world = World.new(test_jets)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
+```
+
+```elixir
+world = World.advance(world)
+World.draw(world)
 ```
