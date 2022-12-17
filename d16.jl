@@ -20,159 +20,219 @@ function parse_input(path)::Graph
 end
 
 test_graph = parse_input("inputs/d16_test")
-graph = parse_input("inputs/d16")
+# graph = parse_input("inputs/d16")
+graph = test_graph
 
 
-function dfs(f::Function, graph::Graph, start_id::AbstractString)
-    s = [start_id]
-    discovered = Set()
-    while !isempty(s)
-        vid = pop!(s)
-        if vid ∉ discovered
-            push!(discovered, vid)
-            f(graph, vid)
-            for vid = graph[vid].connections
-                push!(s, vid)
+# function dfs(f::Function, graph::Graph, start_id::AbstractString)
+#     s = [start_id]
+#     discovered = Set()
+#     while !isempty(s)
+#         vid = pop!(s)
+#         if vid ∉ discovered
+#             push!(discovered, vid)
+#             f(graph, vid)
+#             for vid = graph[vid].connections
+#                 push!(s, vid)
+#             end
+#         end
+#     end
+# end
+
+# global paths::Vector{Path} = []
+
+# for neighbour = graph[start_id].connections
+#     if neighbour ∉ visited
+#         dead_end = false
+#         child_visited = copy(visited)
+#         push!(child_visited, start_id)
+
+#         bfs(graph, neighbour, visited=child_visited, path=[path; start_id])
+#     end
+# end
+
+# if dead_end
+#     push!(paths, path)
+#     println(path)
+# end
+
+
+function p1(graph::Graph, start_id::AbstractString; max_minutes=6)
+    to_explore = [(curr=start_id, minute=0, opened=[], total_flow=0, released_so_far=0)]
+    scores = Set()
+    # TODO: non-zero valves count
+    max_opened = 6
+
+    while !isempty(to_explore)
+        curr, minute, opened, total_flow, released_so_far = popfirst!(to_explore)
+
+        if length(opened) == max_opened
+            released_so_far += (max_minutes - minute) * total_flow
+            push!(scores, released_so_far)
+            continue
+        end
+
+        if minute < max_minutes
+            flow = graph[curr].flow
+            if flow > 0 && curr ∉ opened
+                minute += 1
+                released_so_far += total_flow
+                opened = [curr; opened]
+
+                # TODO: how to avoid double counting here?
+                minute += 1
+                total_flow += flow
+                released_so_far += total_flow
+            else
+                minute += 1
+                total_flow += flow
+                released_so_far += total_flow
             end
-        end
-    end
-end
 
-global paths::Vector{Path} = []
-
-function bfs(graph::Graph, start_id::AbstractString; visited=Set{AbstractString}(), path=[])
-    # dead_end = true
-
-    for neighbour = graph[start_id].connections
-        # if neighbour ∉ visited
-        # dead_end = false
-        child_visited = copy(visited)
-        push!(child_visited, start_id)
-
-        bfs(graph, neighbour, visited=child_visited, path=[path; start_id])
-        # end
-    end
-
-    # if dead_end
-    push!(paths, path)
-    println(path)
-    # end
-end
-
-# bfs(graph, "AA")
-
-function score_path(path::Path, graph::Graph)
-    minute, total_flow, released_pressure = 0, 0, 0
-
-    for valve_id = path
-        flow = graph[valve_id].flow
-        if flow > 0
-            @show minute += 1
-            @show released_pressure += total_flow
-
-            @show minute += 1
-            @show total_flow += flow
-            @show released_pressure += total_flow
+            for neighbour = graph[curr].connections
+                push!(
+                    to_explore,
+                    (curr=neighbour, minute=minute, opened=opened, total_flow=total_flow,
+                        released_so_far=released_so_far)
+                )
+            end
         else
-            @show minute += 1
-            @show released_pressure += total_flow
+            push!(scores, released_so_far)
         end
     end
 
-    released_pressure += (30 - minute) * total_flow
-    return (released_pressure=released_pressure, total_flow=total_flow)
+    scores
 end
-
-
-global tried_paths = []
-
-function all_paths(f::Function, graph::Graph, start_id::AbstractString, visited::Set{Any})
-    push!(tried_paths, start_id)
-    s = [start_id]
-    new_node = false
-
-    f(start_id)
-
-    for connection = graph[vid].connections
-        if connection ∉ visited
-            new_node = true
-            visited = push!(visited, vid)
-            all_paths(f, g, connection, visited)
-        end
-    end
-    if !new_node
-        println(tried_paths)
-    end
-    pop!(tried_paths)
-end
-
-global minute = 0
-global total_flow = 0
-global released_pressure = 0
-dfs(graph, "AA") do graph, vid
-    flow = graph[vid].flow
-    println("discovered: $(vid) with flow $(flow)")
-    if flow > 0
-        @show global minute += 1
-        @show global released_pressure += total_flow
-
-        @show global minute += 1
-        @show global total_flow += flow
-        @show global released_pressure += total_flow
-    else
-        @show global minute += 1
-        @show global released_pressure += total_flow
-    end
-end
-@show released_pressure += (30 - minute) * total_flow
 
 # graph = test_graph
-function fw(graph::Graph)
-    idx_to_vertex_id = keys(graph) |> enumerate |> Dict
-    vertex_id_to_idx = collect(idx_to_vertex_id) .|> reverse |> Dict
-    num_vertices = length(idx_to_vertex_id)
-    dist = fill(Inf, (num_vertices, num_vertices))
-    paths = fill(0, (num_vertices, num_vertices))
+# paths = p1(graph, "AA")
+# 6 - 206 paths
+# 7 - 471 paths
+# @time paths = bfs(graph, "AA", max_steps=8)
+# 1111
+# @time paths = bfs(graph, "AA", max_steps=9)
+# 2537-element
+# 10 - 5970
 
-    for (vertex_id, valve) = graph
-        idx = vertex_id_to_idx[vertex_id]
+# all_paths = Set()
+# for valve_id = keys(graph)
+#     union!(all_paths, bfs(graph, valve_id))
+# end
 
-        # always open non-zero valves
-        # if valve.flow == 0
-        dist[idx, idx] = 0
-        paths[idx, idx] = idx
-        # else
-        #     dist[idx, idx] = 1
-        # end
 
-        for connection_vertex_id = valve.connections
-            connection_vertex_idx = vertex_id_to_idx[connection_vertex_id]
-            dist[idx, connection_vertex_idx] = -valve.flow
-            paths[idx, connection_vertex_idx] = connection_vertex_idx
-        end
-    end
+# function score_path(path, graph)
+#     minute, total_flow, released_pressure = 0, 0, 0
 
-    for k = 1:num_vertices
-        for i = 1:num_vertices
-            for j = 1:num_vertices
-                if dist[i, j] > dist[i, k] + dist[k, j]
-                    dist[i, j] = dist[i, k] + dist[k, j]
-                    paths[i, j] = paths[i, k]
-                end
-            end
-        end
-    end
+#     for valve_id = path
+#         flow = graph[valve_id].flow
+#         if flow > 0
+#             @show minute += 1
+#             @show released_pressure += total_flow
 
-    dist, paths, idx_to_vertex_id
-end
+#             @show minute += 1
+#             @show total_flow += flow
+#             @show released_pressure += total_flow
+#         else
+#             @show minute += 1
+#             @show released_pressure += total_flow
+#         end
+#     end
 
-function reconstruct_path(paths::Matrix{Any}, idx_to_vertex_id::Dict{Any,Any}, from_idx)::Vector[Any]
-    path = []
-    id = idx_to_vertex_id[from_idx]
-    while !(id in path)
-        push!(path, id)
-        next_idx = paths[from_idx]
-        id = idx_to_vertex_id[next_idx]
-    end
-    path
-end
+#     released_pressure += (30 - minute) * total_flow
+#     return (released_pressure=released_pressure, total_flow=total_flow)
+# end
+
+# #  map(path -> score_path(path, graph), paths)
+
+# global tried_paths = []
+
+# function all_paths(f::Function, graph::Graph, start_id::AbstractString, visited::Set{Any})
+#     push!(tried_paths, start_id)
+#     s = [start_id]
+#     new_node = false
+
+#     f(start_id)
+
+#     for connection = graph[vid].connections
+#         if connection ∉ visited
+#             new_node = true
+#             visited = push!(visited, vid)
+#             all_paths(f, g, connection, visited)
+#         end
+#     end
+#     if !new_node
+#         println(tried_paths)
+#     end
+#     pop!(tried_paths)
+# end
+
+# global minute = 0
+# global total_flow = 0
+# global released_pressure = 0
+# dfs(graph, "AA") do graph, vid
+#     flow = graph[vid].flow
+#     println("discovered: $(vid) with flow $(flow)")
+#     if flow > 0
+#         @show global minute += 1
+#         @show global released_pressure += total_flow
+
+#         @show global minute += 1
+#         @show global total_flow += flow
+#         @show global released_pressure += total_flow
+#     else
+#         @show global minute += 1
+#         @show global released_pressure += total_flow
+#     end
+# end
+# @show released_pressure += (30 - minute) * total_flow
+
+# # graph = test_graph
+# function fw(graph::Graph)
+#     idx_to_vertex_id = keys(graph) |> enumerate |> Dict
+#     vertex_id_to_idx = collect(idx_to_vertex_id) .|> reverse |> Dict
+#     num_vertices = length(idx_to_vertex_id)
+#     dist = fill(Inf, (num_vertices, num_vertices))
+#     paths = fill(0, (num_vertices, num_vertices))
+
+#     for (vertex_id, valve) = graph
+#         idx = vertex_id_to_idx[vertex_id]
+
+#         # always open non-zero valves
+#         # if valve.flow == 0
+#         dist[idx, idx] = 0
+#         paths[idx, idx] = idx
+#         # else
+#         #     dist[idx, idx] = 1
+#         # end
+
+#         for connection_vertex_id = valve.connections
+#             connection_vertex_idx = vertex_id_to_idx[connection_vertex_id]
+#             dist[idx, connection_vertex_idx] = -valve.flow
+#             paths[idx, connection_vertex_idx] = connection_vertex_idx
+#         end
+#     end
+
+#     for k = 1:num_vertices
+#         for i = 1:num_vertices
+#             for j = 1:num_vertices
+#                 if dist[i, j] > dist[i, k] + dist[k, j]
+#                     dist[i, j] = dist[i, k] + dist[k, j]
+#                     paths[i, j] = paths[i, k]
+#                 end
+#             end
+#         end
+#     end
+
+#     dist, paths, idx_to_vertex_id
+# end
+
+# function reconstruct_path(paths::Matrix{Any}, idx_to_vertex_id::Dict{Any,Any}, from_idx)::Vector[Any]
+#     path = []
+#     id = idx_to_vertex_id[from_idx]
+#     while !(id in path)
+#         push!(path, id)
+#         next_idx = paths[from_idx]
+#         id = idx_to_vertex_id[next_idx]
+#     end
+#     path
+# end
