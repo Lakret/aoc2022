@@ -5,12 +5,12 @@ use std::{fs, time::Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Blueprint {
-    ore_bot_cost: i32,
-    clay_bot_cost: i32,
-    obsidian_bot_cost_ore: i32,
-    obsidian_bot_cost_clay: i32,
-    geode_bot_cost_ore: i32,
-    geode_bot_cost_obsidian: i32,
+    ore_bot_cost: u32,
+    clay_bot_cost: u32,
+    obsidian_bot_cost_ore: u32,
+    obsidian_bot_cost_clay: u32,
+    geode_bot_cost_ore: u32,
+    geode_bot_cost_obsidian: u32,
 }
 
 fn parse_input(path: &str) -> Vec<Blueprint> {
@@ -36,18 +36,18 @@ fn parse_input(path: &str) -> Vec<Blueprint> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 struct State {
-    minute: i32,
+    minute: u32,
     // Resources
-    ore: i32,
-    clay: i32,
-    obsidian: i32,
+    ore: u32,
+    clay: u32,
+    obsidian: u32,
     // Bots
-    ore_bots: i32,
-    clay_bots: i32,
-    obsidian_bots: i32,
-    geode_bots: i32,
+    ore_bots: u32,
+    clay_bots: u32,
+    obsidian_bots: u32,
+    geode_bots: u32,
     // Target
-    geodes: i32,
+    geodes: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,7 +108,7 @@ impl State {
     // requirement for the next robort type, we don't produce more of those.
     //
     // we also cap the number of ore robots at 4
-    fn possible_actions(&self, blueprint: &Blueprint, max_minutes: i32) -> Vec<Action> {
+    fn possible_actions(&self, blueprint: &Blueprint, max_minutes: u32) -> Vec<Action> {
         let mut actions = vec![];
 
         if self.ore >= blueprint.geode_bot_cost_ore
@@ -145,7 +145,7 @@ impl State {
     }
 }
 
-fn evaluate(blueprint: Blueprint, max_minutes: i32) -> i32 {
+fn evaluate(blueprint: Blueprint, max_minutes: u32) -> u32 {
     let mut best_open_geodes = 0;
 
     let mut start_state = State::default();
@@ -206,24 +206,21 @@ fn evaluate(blueprint: Blueprint, max_minutes: i32) -> i32 {
     best_open_geodes
 }
 
-fn p1(input: Vec<Blueprint>) -> i64 {
+fn p1(input: Vec<Blueprint>) -> u32 {
     input
         .par_iter()
         .map(|&blueprint| evaluate(blueprint, 24))
         .enumerate()
-        .map(|(id, x)| (id + 1) as i64 * x as i64)
+        .map(|(id, x)| (id + 1) as u32 * x as u32)
         .sum()
 }
 
-fn p2(input: Vec<Blueprint>) -> i64 {
-    input.par_iter().take(3).map(|&blueprint| evaluate(blueprint, 32)).map(|x| x as i64).product()
+fn p2(input: Vec<Blueprint>) -> u32 {
+    input.par_iter().take(3).map(|&blueprint| evaluate(blueprint, 32)).map(|x| x as u32).product()
 }
 
-// p1 test, blueprint 1: 9 [143 ms]
-// p1 test, blueprint 2: 12 [832 ms]
-// p1 test ans: 33 [831 ms]
-// p1 ans: 1703 [1202 ms]
-// p2 test ans: 3472 [38829 ms]
+// p1 ans: 1703 [1384 ms]
+// p2 ans: 5301 [50612 ms]
 fn main() {
     let input = parse_input("../inputs/d19");
     let timer = Instant::now();
@@ -237,7 +234,7 @@ fn main() {
     let p2_ans = p2(input);
     let elapsed = timer.elapsed().as_millis();
     println!("p2 ans: {p2_ans} [{elapsed} ms]");
-    assert_eq!(p1_ans, 5301);
+    assert_eq!(p2_ans, 5301);
 }
 
 #[cfg(test)]
