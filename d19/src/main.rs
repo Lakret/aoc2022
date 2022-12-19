@@ -4,7 +4,6 @@ use std::{fs, time::Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Blueprint {
-    id: i32,
     ore_bot_cost: i32,
     clay_bot_cost: i32,
     obsidian_bot_cost_ore: i32,
@@ -18,11 +17,10 @@ struct Blueprint {
 fn parse_input(path: &str) -> Vec<Blueprint> {
     let mut blueprints = vec![];
 
-    let re = Regex::new(r"^Blueprint (?P<id>\d+): Each ore robot costs (?P<ore_bot_cost>\d+) ore. Each clay robot costs (?P<clay_bot_cost>\d+) ore. Each obsidian robot costs (?P<obsidian_bot_ore_cost>\d+) ore and (?P<obsidian_bot_clay_cost>\d+) clay. Each geode robot costs (?P<geode_bot_ore_cost>\d+) ore and (?P<geode_bot_obsidian_cost>\d+) obsidian.$").unwrap();
+    let re = Regex::new(r"^Blueprint \d+: Each ore robot costs (?P<ore_bot_cost>\d+) ore. Each clay robot costs (?P<clay_bot_cost>\d+) ore. Each obsidian robot costs (?P<obsidian_bot_ore_cost>\d+) ore and (?P<obsidian_bot_clay_cost>\d+) clay. Each geode robot costs (?P<geode_bot_ore_cost>\d+) ore and (?P<geode_bot_obsidian_cost>\d+) obsidian.$").unwrap();
     for line in fs::read_to_string(path).unwrap().trim_end().split("\n") {
         let vals = re.captures(line).unwrap();
         let blueprint = Blueprint {
-            id: vals["id"].parse().unwrap(),
             ore_bot_cost: vals["ore_bot_cost"].parse().unwrap(),
             clay_bot_cost: vals["clay_bot_cost"].parse().unwrap(),
             obsidian_bot_cost_ore: vals["obsidian_bot_ore_cost"].parse().unwrap(),
@@ -112,31 +110,33 @@ impl State {
     // requirement for the next robort type, we don't produce more of those.
     //
     // we also cap the number of ore robots at 4
-    fn possible_actions(&self, blueprint: &Blueprint) -> Vec<Action> {
+    fn possible_actions(&self, blueprint: &Blueprint, max_minutes: i32) -> Vec<Action> {
         let mut actions = vec![];
 
         if self.ore >= blueprint.geode_bot_cost_ore
             && self.obsidian >= blueprint.geode_bot_cost_obsidian
-            && self.minute < 23
+            && self.minute < max_minutes - 1
         {
             actions.push(BuildGeodeBot);
         }
 
         if self.ore >= blueprint.obsidian_bot_cost_ore
             && self.clay >= blueprint.obsidian_bot_cost_clay
-            && self.minute < 22
+            && self.minute < max_minutes - 3
             && self.obsidian_bots < blueprint.geode_bot_cost_obsidian
         {
             actions.push(BuildObsidianBot);
         }
 
-        if self.ore >= blueprint.clay_bot_cost && self.minute < 21 && self.clay_bots < blueprint.obsidian_bot_cost_clay
+        if self.ore >= blueprint.clay_bot_cost
+            && self.minute < max_minutes - 5
+            && self.clay_bots < blueprint.obsidian_bot_cost_clay
         {
             actions.push(BuildClayBot);
         }
 
         if self.ore >= blueprint.ore_bot_cost
-            && self.minute < 20
+            && self.minute < max_minutes - 7
             && self.ore_bots < blueprint.clay_bot_cost + blueprint.obsidian_bot_cost_ore + blueprint.geode_bot_cost_ore
             && self.ore_bots < 4
         {
@@ -147,31 +147,37 @@ impl State {
     }
 }
 
-const MAX_MINUTES: i32 = 24;
-
-fn evaluate(blueprint: &Blueprint) -> i32 {
+fn evaluate(blueprint: Blueprint, max_minutes: i32) -> i32 {
     let mut best_open_geodes = 0;
 
     let mut start_state = State::default();
     start_state.ore_bots = 1;
 
     let mut states = start_state
-        .possible_actions(&blueprint)
+        .possible_actions(&blueprint, max_minutes)
         .into_iter()
         .map(|action| (start_state.clone(), Some(action)))
         .collect::<Vec<_>>();
     states.push((start_state.clone(), None));
 
+    // let mut examined: u64 = 0;
+
     // TODO: prune based on the possible achieavable score too
     while let Some((mut state, action)) = states.pop() {
         state.advance(&blueprint, action);
 
-        if state.minute == MAX_MINUTES {
+        // examined += 1;
+        // if examined % 100_000_000 == 0 {
+        //     let minute = state.minute;
+        //     println!("examined: {examined}, minute: {minute}.")
+        // }
+
+        if state.minute == max_minutes {
             if state.geodes > best_open_geodes {
                 best_open_geodes = state.geodes;
             }
         } else {
-            match state.possible_actions(&blueprint)[..] {
+            match state.possible_actions(&blueprint, max_minutes)[..] {
                 [best_bot_to_build, second_best_bot_to_build, ..] => {
                     states.push((state.clone(), None));
                     states.push((state.clone(), Some(second_best_bot_to_build)));
@@ -186,23 +192,36 @@ fn evaluate(blueprint: &Blueprint) -> i32 {
         }
     }
 
-    blueprint.id * best_open_geodes
+    best_open_geodes
 }
 
 fn p1(input: Vec<Blueprint>) -> i64 {
-    input.par_iter().map(evaluate).map(|x| x as i64).sum()
+    input
+        .par_iter()
+        .map(|&blueprint| evaluate(blueprint, 24))
+        .enumerate()
+        .map(|(id, x)| (id + 1) as i64 * x as i64)
+        .sum()
 }
 
+fn p2(input: Vec<Blueprint>) -> i64 {
+    input.par_iter().take(3).map(|&blueprint| evaluate(blueprint, 32)).map(|x| x as i64).product()
+}
+
+// p1 test, blueprint 1: 9 [441 ms]
+// p1 test, blueprint 2: 12 [2973 ms]
+// p1 test ans: 33 [2963 ms]
+// p1 ans: 1703 [3199 ms]
 fn main() {
     let test_input = parse_input("../inputs/d19_test");
 
     let timer = Instant::now();
-    let p1_test_b1 = evaluate(&test_input[0]);
+    let p1_test_b1 = evaluate(test_input[0], 24);
     let elapsed = timer.elapsed().as_millis();
     println!("p1 test, blueprint 1: {p1_test_b1} [{elapsed} ms]");
 
     let timer = Instant::now();
-    let p1_test_b2 = evaluate(&test_input[1]);
+    let p1_test_b2 = evaluate(test_input[1], 24);
     let elapsed = timer.elapsed().as_millis();
     println!("p1 test, blueprint 2: {p1_test_b2} [{elapsed} ms]");
 
@@ -217,6 +236,13 @@ fn main() {
     let p1_ans = p1(input);
     let elapsed = timer.elapsed().as_millis();
     println!("p1 ans: {p1_ans} [{elapsed} ms]");
+
+    // p2, should be 3472 (56 * 62)
+    let test_input = parse_input("../inputs/d19_test");
+    let timer = Instant::now();
+    let p2_test_ans = p2(test_input);
+    let elapsed = timer.elapsed().as_millis();
+    println!("p2 test ans: {p2_test_ans} [{elapsed} ms]");
 }
 
 #[cfg(test)]
@@ -230,7 +256,6 @@ mod tests {
         assert_eq!(
             test_input[0],
             Blueprint {
-                id: 1,
                 ore_bot_cost: 4,
                 clay_bot_cost: 2,
                 obsidian_bot_cost_ore: 3,
@@ -251,7 +276,7 @@ mod tests {
         let mut state = State::default();
         state.ore_bots = 1;
 
-        assert_eq!(state.possible_actions(&blueprint), vec![]);
+        assert_eq!(state.possible_actions(&blueprint, 24), vec![]);
         state.advance(&blueprint, None);
         assert_eq!(
             state,
@@ -268,7 +293,7 @@ mod tests {
             }
         );
 
-        assert_eq!(state.possible_actions(&blueprint), vec![]);
+        assert_eq!(state.possible_actions(&blueprint, 24), vec![]);
         state.advance(&blueprint, None);
         assert_eq!(
             state,
@@ -285,7 +310,7 @@ mod tests {
             }
         );
 
-        assert_eq!(state.possible_actions(&blueprint), vec![BuildClayBot]);
+        assert_eq!(state.possible_actions(&blueprint, 24), vec![BuildClayBot]);
         state.advance(&blueprint, Some(BuildClayBot));
         assert_eq!(
             state,
@@ -302,7 +327,7 @@ mod tests {
             }
         );
 
-        assert_eq!(state.possible_actions(&blueprint), vec![]);
+        assert_eq!(state.possible_actions(&blueprint, 24), vec![]);
         state.advance(&blueprint, None);
         assert_eq!(
             state,
@@ -331,7 +356,7 @@ mod tests {
             geodes: 0,
         };
 
-        assert_eq!(state.possible_actions(&blueprint), vec![BuildObsidianBot, BuildClayBot, BuildOreBot]);
+        assert_eq!(state.possible_actions(&blueprint, 24), vec![BuildObsidianBot, BuildClayBot, BuildOreBot]);
         state.advance(&blueprint, Some(BuildObsidianBot));
         assert_eq!(
             state,
@@ -348,7 +373,7 @@ mod tests {
             }
         );
 
-        assert_eq!(state.possible_actions(&blueprint), vec![BuildClayBot]);
+        assert_eq!(state.possible_actions(&blueprint, 24), vec![BuildClayBot]);
         state.advance(&blueprint, Some(BuildClayBot));
         assert_eq!(
             state,
@@ -377,7 +402,7 @@ mod tests {
             geodes: 0,
         };
 
-        assert_eq!(state.possible_actions(&blueprint), vec![BuildGeodeBot, BuildClayBot]);
+        assert_eq!(state.possible_actions(&blueprint, 24), vec![BuildGeodeBot, BuildClayBot]);
         state.advance(&blueprint, Some(BuildGeodeBot));
         assert_eq!(
             state,
@@ -394,7 +419,7 @@ mod tests {
             }
         );
 
-        assert_eq!(state.possible_actions(&blueprint), vec![BuildClayBot]);
+        assert_eq!(state.possible_actions(&blueprint, 24), vec![BuildClayBot]);
         state.advance(&blueprint, None);
         assert_eq!(
             state,
