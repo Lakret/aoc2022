@@ -61,11 +61,6 @@ enum Action {
     BuildOreBot,
 }
 
-// Each ore robot costs 4 ore.
-// Each clay robot costs 2 ore.
-// Each obsidian robot costs 3 ore and 14 clay.
-// Each geode robot costs 2 ore and 7 obsidian.
-
 use Action::*;
 
 impl State {
@@ -106,7 +101,7 @@ impl State {
         self.minute += 1;
     }
 
-    // always prefer to build the later bots
+    // we want to always prefer to build the later bots => thus we order them before the lower level bots
     fn possible_actions(&self, blueprint: &Blueprint) -> Vec<Action> {
         let mut actions = vec![];
 
@@ -130,16 +125,57 @@ impl State {
     }
 }
 
+const MAX_MINUTES: i32 = 24;
+
+// Each ore robot costs 4 ore.
+// Each clay robot costs 2 ore.
+// Each obsidian robot costs 3 ore and 14 clay.
+// Each geode robot costs 2 ore and 7 obsidian.
 fn evaluate(blueprint: Blueprint) -> i32 {
-    let max_minutes = 24;
+    let mut best_open_geodes = 0;
+
     let mut start_state = State::default();
     start_state.ore_bots = 1;
 
-    todo!()
+    let mut states = start_state
+        .possible_actions(&blueprint)
+        .into_iter()
+        .map(|action| (start_state.clone(), Some(action)))
+        .collect::<Vec<_>>();
+    states.push((start_state.clone(), None));
+
+    while let Some((mut state, action)) = states.pop() {
+        state.advance(&blueprint, action);
+
+        if state.minute == MAX_MINUTES {
+            if state.geodes > best_open_geodes {
+                best_open_geodes = state.geodes;
+            }
+        } else {
+            match state.possible_actions(&blueprint)[..] {
+                [best_bot_to_build, second_best_bot_to_build, ..] => {
+                    states.push((state.clone(), None));
+                    states.push((state.clone(), Some(second_best_bot_to_build)));
+                    states.push((state.clone(), Some(best_bot_to_build)));
+                }
+                [best_bot_to_build, ..] => {
+                    states.push((state.clone(), None));
+                    states.push((state.clone(), Some(best_bot_to_build)));
+                }
+                [] => states.push((state.clone(), None)),
+            }
+        }
+    }
+
+    best_open_geodes
 }
 
 fn main() {
-    println!("Hello, world!");
+    let test_input = parse_input("../inputs/d19_test");
+    let p1_test = evaluate(test_input[0]);
+    println!("p1 test, blueprint 1: {p1_test}");
+    let p1_test = evaluate(test_input[1]);
+    println!("p1 test, blueprint 2: {p1_test}");
 }
 
 // doesn't make sense to build a geode robot at the last minute
