@@ -1,7 +1,7 @@
 use core::panic;
 use rayon::prelude::*;
 use regex::Regex;
-use std::{collections::VecDeque, fs, time::Instant};
+use std::{fs, time::Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Blueprint {
@@ -158,16 +158,8 @@ fn evaluate(blueprint: Blueprint, max_minutes: i32) -> i32 {
         .collect::<Vec<_>>();
     states.push((start_state.clone(), None));
 
-    let mut examined: u64 = 0;
-
     while let Some((mut state, action)) = states.pop() {
         state.advance(&blueprint, action);
-
-        examined += 1;
-        if examined % 100_000_000 == 0 {
-            let minute = state.minute;
-            println!("examined: {examined}, minute: {minute}, best so far: {best_open_geodes}.")
-        }
 
         if state.minute == max_minutes {
             if state.geodes > best_open_geodes {
@@ -176,7 +168,8 @@ fn evaluate(blueprint: Blueprint, max_minutes: i32) -> i32 {
         } else {
             // prune based on the possible achieavable score compared to the best so far
             let remaining_time = max_minutes - state.minute;
-            if remaining_time <= 6 {
+            if remaining_time <= 8 {
+                // each of those is previous number + self, i.e. 3 => 6 implies 4 => 4 + 6 = 10.
                 let possible_to_open_additional_geodes_with_new_bots = match remaining_time {
                     1 => 1,
                     2 => 3,
@@ -184,6 +177,8 @@ fn evaluate(blueprint: Blueprint, max_minutes: i32) -> i32 {
                     4 => 10,
                     5 => 15,
                     6 => 21,
+                    7 => 28,
+                    8 => 36,
                     _ => panic!("cannot calculate for {remaining_time}"),
                 };
                 if state.geodes + remaining_time * state.geode_bots + possible_to_open_additional_geodes_with_new_bots
@@ -228,43 +223,21 @@ fn p2(input: Vec<Blueprint>) -> i64 {
 // p1 test, blueprint 2: 12 [832 ms]
 // p1 test ans: 33 [831 ms]
 // p1 ans: 1703 [1202 ms]
+// p2 test ans: 3472 [38829 ms]
 fn main() {
-    let test_input = parse_input("../inputs/d19_test");
-
-    let timer = Instant::now();
-    let p1_test_b1 = evaluate(test_input[0], 24);
-    let elapsed = timer.elapsed().as_millis();
-    println!("p1 test, blueprint 1: {p1_test_b1} [{elapsed} ms]");
-
-    let timer = Instant::now();
-    let p1_test_b2 = evaluate(test_input[1], 24);
-    let elapsed = timer.elapsed().as_millis();
-    println!("p1 test, blueprint 2: {p1_test_b2} [{elapsed} ms]");
-
-    let timer = Instant::now();
-    let p1_test_ans = p1(test_input);
-    let elapsed = timer.elapsed().as_millis();
-    println!("p1 test ans: {p1_test_ans} [{elapsed} ms]");
-
-    // 1703
     let input = parse_input("../inputs/d19");
     let timer = Instant::now();
     let p1_ans = p1(input);
     let elapsed = timer.elapsed().as_millis();
     println!("p1 ans: {p1_ans} [{elapsed} ms]");
-
-    // p2, should be 3472 (56 * 62)
-    let test_input = parse_input("../inputs/d19_test");
-    let timer = Instant::now();
-    let p2_test_ans = p2(test_input);
-    let elapsed = timer.elapsed().as_millis();
-    println!("p2 test ans: {p2_test_ans} [{elapsed} ms]");
+    assert_eq!(p1_ans, 1703);
 
     let input = parse_input("../inputs/d19");
     let timer = Instant::now();
     let p2_ans = p2(input);
     let elapsed = timer.elapsed().as_millis();
     println!("p2 ans: {p2_ans} [{elapsed} ms]");
+    assert_eq!(p1_ans, 5301);
 }
 
 #[cfg(test)]
@@ -457,5 +430,26 @@ mod tests {
                 geodes: 1,
             }
         );
+    }
+
+    #[test]
+    fn p1_test() {
+        let test_input = parse_input("../inputs/d19_test");
+
+        let p1_test_b1 = evaluate(test_input[0], 24);
+        assert_eq!(p1_test_b1, 9);
+        let p1_test_b2 = evaluate(test_input[1], 24);
+        assert_eq!(p1_test_b2, 12);
+
+        let p1_test_ans = p1(test_input);
+        assert_eq!(p1_test_ans, 33);
+    }
+
+    #[test]
+    fn p2_test() {
+        let test_input = parse_input("../inputs/d19_test");
+
+        let p2_test_ans = p2(test_input);
+        assert_eq!(p2_test_ans, 3472);
     }
 }
