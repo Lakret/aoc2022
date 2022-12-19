@@ -1,5 +1,5 @@
 use regex::Regex;
-use std::fs;
+use std::{fs, time::Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Blueprint {
@@ -102,22 +102,32 @@ impl State {
     }
 
     // we want to always prefer to build the later bots => thus we order them before the lower level bots
+    //
+    // we also prune based on time, i.e. we won't build a geode robot on minute 24, since it won't produce
+    // any open geodes, obsidian robot on the minute 23, because even though it will produce obsidian,
+    // there won't be enough time to produce new geode bots => more open geodes, etc.
     fn possible_actions(&self, blueprint: &Blueprint) -> Vec<Action> {
         let mut actions = vec![];
 
-        if self.ore >= blueprint.geode_bot_cost_ore && self.obsidian >= blueprint.geode_bot_cost_obsidian {
+        if self.ore >= blueprint.geode_bot_cost_ore
+            && self.obsidian >= blueprint.geode_bot_cost_obsidian
+            && self.minute < 23
+        {
             actions.push(BuildGeodeBot);
         }
 
-        if self.ore >= blueprint.obsidian_bot_cost_ore && self.clay >= blueprint.obsidian_bot_cost_clay {
+        if self.ore >= blueprint.obsidian_bot_cost_ore
+            && self.clay >= blueprint.obsidian_bot_cost_clay
+            && self.minute < 22
+        {
             actions.push(BuildObsidianBot);
         }
 
-        if self.ore >= blueprint.clay_bot_cost {
+        if self.ore >= blueprint.clay_bot_cost && self.minute < 21 {
             actions.push(BuildClayBot);
         }
 
-        if self.ore >= blueprint.ore_bot_cost {
+        if self.ore >= blueprint.ore_bot_cost && self.minute < 20 {
             actions.push(BuildOreBot);
         }
 
@@ -172,10 +182,16 @@ fn evaluate(blueprint: Blueprint) -> i32 {
 
 fn main() {
     let test_input = parse_input("../inputs/d19_test");
-    let p1_test = evaluate(test_input[0]);
-    println!("p1 test, blueprint 1: {p1_test}");
-    let p1_test = evaluate(test_input[1]);
-    println!("p1 test, blueprint 2: {p1_test}");
+
+    let timer = Instant::now();
+    let p1_test_b1 = evaluate(test_input[0]);
+    let elapsed = timer.elapsed().as_millis();
+    println!("p1 test, blueprint 1: {p1_test_b1} [{elapsed} ms]");
+
+    let timer = Instant::now();
+    let p1_test_b2 = evaluate(test_input[1]);
+    let elapsed = timer.elapsed().as_millis();
+    println!("p1 test, blueprint 2: {p1_test_b2} [{elapsed} ms]");
 }
 
 // doesn't make sense to build a geode robot at the last minute
