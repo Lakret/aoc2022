@@ -1,6 +1,7 @@
+use core::panic;
 use rayon::prelude::*;
 use regex::Regex;
-use std::{fs, time::Instant};
+use std::{collections::VecDeque, fs, time::Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Blueprint {
@@ -11,8 +12,6 @@ struct Blueprint {
     geode_bot_cost_ore: i32,
     geode_bot_cost_obsidian: i32,
 }
-
-// Each ore robot costs 4 ore. Each clay robot costs 2 ore. Each obsidian robot costs 3 ore and 14 clay. Each geode robot costs 2 ore and 7 obsidian.
 
 fn parse_input(path: &str) -> Vec<Blueprint> {
     let mut blueprints = vec![];
@@ -51,7 +50,6 @@ struct State {
     geodes: i32,
 }
 
-// we always open geods when we can
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
     BuildGeodeBot,
@@ -160,23 +158,41 @@ fn evaluate(blueprint: Blueprint, max_minutes: i32) -> i32 {
         .collect::<Vec<_>>();
     states.push((start_state.clone(), None));
 
-    // let mut examined: u64 = 0;
+    let mut examined: u64 = 0;
 
-    // TODO: prune based on the possible achieavable score too
     while let Some((mut state, action)) = states.pop() {
         state.advance(&blueprint, action);
 
-        // examined += 1;
-        // if examined % 100_000_000 == 0 {
-        //     let minute = state.minute;
-        //     println!("examined: {examined}, minute: {minute}.")
-        // }
+        examined += 1;
+        if examined % 100_000_000 == 0 {
+            let minute = state.minute;
+            println!("examined: {examined}, minute: {minute}, best so far: {best_open_geodes}.")
+        }
 
         if state.minute == max_minutes {
             if state.geodes > best_open_geodes {
                 best_open_geodes = state.geodes;
             }
         } else {
+            // prune based on the possible achieavable score compared to the best so far
+            let remaining_time = max_minutes - state.minute;
+            if remaining_time <= 6 {
+                let possible_to_open_additional_geodes_with_new_bots = match remaining_time {
+                    1 => 1,
+                    2 => 3,
+                    3 => 6,
+                    4 => 10,
+                    5 => 15,
+                    6 => 21,
+                    _ => panic!("cannot calculate for {remaining_time}"),
+                };
+                if state.geodes + remaining_time * state.geode_bots + possible_to_open_additional_geodes_with_new_bots
+                    < best_open_geodes
+                {
+                    continue;
+                }
+            }
+
             match state.possible_actions(&blueprint, max_minutes)[..] {
                 [best_bot_to_build, second_best_bot_to_build, ..] => {
                     states.push((state.clone(), None));
@@ -208,10 +224,10 @@ fn p2(input: Vec<Blueprint>) -> i64 {
     input.par_iter().take(3).map(|&blueprint| evaluate(blueprint, 32)).map(|x| x as i64).product()
 }
 
-// p1 test, blueprint 1: 9 [441 ms]
-// p1 test, blueprint 2: 12 [2973 ms]
-// p1 test ans: 33 [2963 ms]
-// p1 ans: 1703 [3199 ms]
+// p1 test, blueprint 1: 9 [143 ms]
+// p1 test, blueprint 2: 12 [832 ms]
+// p1 test ans: 33 [831 ms]
+// p1 ans: 1703 [1202 ms]
 fn main() {
     let test_input = parse_input("../inputs/d19_test");
 
@@ -243,6 +259,12 @@ fn main() {
     let p2_test_ans = p2(test_input);
     let elapsed = timer.elapsed().as_millis();
     println!("p2 test ans: {p2_test_ans} [{elapsed} ms]");
+
+    let input = parse_input("../inputs/d19");
+    let timer = Instant::now();
+    let p2_ans = p2(input);
+    let elapsed = timer.elapsed().as_millis();
+    println!("p2 ans: {p2_ans} [{elapsed} ms]");
 }
 
 #[cfg(test)]
