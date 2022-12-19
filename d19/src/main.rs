@@ -106,6 +106,11 @@ impl State {
     // we also prune based on time, i.e. we won't build a geode robot on minute 24, since it won't produce
     // any open geodes, obsidian robot on the minute 23, because even though it will produce obsidian,
     // there won't be enough time to produce new geode bots => more open geodes, etc.
+    //
+    // additionally, we prune based on the number of robots we already have: if it's more than the resource
+    // requirement for the next robort type, we don't produce more of those.
+    //
+    // we also cap the number of ore robots at 4
     fn possible_actions(&self, blueprint: &Blueprint) -> Vec<Action> {
         let mut actions = vec![];
 
@@ -119,15 +124,21 @@ impl State {
         if self.ore >= blueprint.obsidian_bot_cost_ore
             && self.clay >= blueprint.obsidian_bot_cost_clay
             && self.minute < 22
+            && self.obsidian_bots < blueprint.geode_bot_cost_obsidian
         {
             actions.push(BuildObsidianBot);
         }
 
-        if self.ore >= blueprint.clay_bot_cost && self.minute < 21 {
+        if self.ore >= blueprint.clay_bot_cost && self.minute < 21 && self.clay_bots < blueprint.obsidian_bot_cost_clay
+        {
             actions.push(BuildClayBot);
         }
 
-        if self.ore >= blueprint.ore_bot_cost && self.minute < 20 {
+        if self.ore >= blueprint.ore_bot_cost
+            && self.minute < 20
+            && self.ore_bots < blueprint.clay_bot_cost + blueprint.obsidian_bot_cost_ore + blueprint.geode_bot_cost_ore
+            && self.ore_bots < 4
+        {
             actions.push(BuildOreBot);
         }
 
@@ -137,10 +148,6 @@ impl State {
 
 const MAX_MINUTES: i32 = 24;
 
-// Each ore robot costs 4 ore.
-// Each clay robot costs 2 ore.
-// Each obsidian robot costs 3 ore and 14 clay.
-// Each geode robot costs 2 ore and 7 obsidian.
 fn evaluate(blueprint: Blueprint) -> i32 {
     let mut best_open_geodes = 0;
 
@@ -179,6 +186,12 @@ fn evaluate(blueprint: Blueprint) -> i32 {
 
     best_open_geodes
 }
+
+// p1 test, blueprint 1: 9 [2209 ms]
+// p1 test, blueprint 2: 12 [21527 ms]
+
+// p1 test, blueprint 1: 9 [2349 ms]
+// p1 test, blueprint 2: 12 [22720 ms]
 
 fn main() {
     let test_input = parse_input("../inputs/d19_test");
