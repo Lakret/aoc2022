@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use regex::Regex;
 use std::{fs, time::Instant};
 
@@ -148,7 +149,7 @@ impl State {
 
 const MAX_MINUTES: i32 = 24;
 
-fn evaluate(blueprint: Blueprint) -> i32 {
+fn evaluate(blueprint: &Blueprint) -> i32 {
     let mut best_open_geodes = 0;
 
     let mut start_state = State::default();
@@ -161,6 +162,7 @@ fn evaluate(blueprint: Blueprint) -> i32 {
         .collect::<Vec<_>>();
     states.push((start_state.clone(), None));
 
+    // TODO: prune based on the possible achieavable score too
     while let Some((mut state, action)) = states.pop() {
         state.advance(&blueprint, action);
 
@@ -184,31 +186,38 @@ fn evaluate(blueprint: Blueprint) -> i32 {
         }
     }
 
-    best_open_geodes
+    blueprint.id * best_open_geodes
 }
 
-// p1 test, blueprint 1: 9 [2209 ms]
-// p1 test, blueprint 2: 12 [21527 ms]
-
-// p1 test, blueprint 1: 9 [2349 ms]
-// p1 test, blueprint 2: 12 [22720 ms]
+fn p1(input: Vec<Blueprint>) -> i64 {
+    input.par_iter().map(evaluate).map(|x| x as i64).sum()
+}
 
 fn main() {
     let test_input = parse_input("../inputs/d19_test");
 
     let timer = Instant::now();
-    let p1_test_b1 = evaluate(test_input[0]);
+    let p1_test_b1 = evaluate(&test_input[0]);
     let elapsed = timer.elapsed().as_millis();
     println!("p1 test, blueprint 1: {p1_test_b1} [{elapsed} ms]");
 
     let timer = Instant::now();
-    let p1_test_b2 = evaluate(test_input[1]);
+    let p1_test_b2 = evaluate(&test_input[1]);
     let elapsed = timer.elapsed().as_millis();
     println!("p1 test, blueprint 2: {p1_test_b2} [{elapsed} ms]");
-}
 
-// doesn't make sense to build a geode robot at the last minute
-// only one robot can be built per minute
+    let timer = Instant::now();
+    let p1_test_ans = p1(test_input);
+    let elapsed = timer.elapsed().as_millis();
+    println!("p1 test ans: {p1_test_ans} [{elapsed} ms]");
+
+    // 1703
+    let input = parse_input("../inputs/d19");
+    let timer = Instant::now();
+    let p1_ans = p1(input);
+    let elapsed = timer.elapsed().as_millis();
+    println!("p1 ans: {p1_ans} [{elapsed} ms]");
+}
 
 #[cfg(test)]
 mod tests {
