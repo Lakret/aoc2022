@@ -1,4 +1,3 @@
-use core::panic;
 use rayon::prelude::*;
 use regex::Regex;
 use std::{fs, time::Instant};
@@ -135,8 +134,8 @@ impl State {
 
         if self.ore >= blueprint.ore_bot_cost
             && self.minute < max_minutes - 7
-            && self.ore_bots < blueprint.clay_bot_cost + blueprint.obsidian_bot_cost_ore + blueprint.geode_bot_cost_ore
             && self.ore_bots < 4
+            && self.ore_bots < blueprint.clay_bot_cost + blueprint.obsidian_bot_cost_ore + blueprint.geode_bot_cost_ore
         {
             actions.push(BuildOreBot);
         }
@@ -144,6 +143,11 @@ impl State {
         actions
     }
 }
+
+// used to prune based on the maximum achieavable score in the last 8 minutes.
+// 0 index is the value for minute 1, etc.
+// each of those is previous number + self, i.e. 3 => 6 implies 4 => 4 + 6 = 10.
+const POSSIBLE_GEODES_IN_REMAINING_TIME: [u32; 8] = [1, 3, 6, 10, 15, 21, 28, 36];
 
 fn evaluate(blueprint: Blueprint, max_minutes: u32) -> u32 {
     let mut best_open_geodes = 0;
@@ -169,19 +173,9 @@ fn evaluate(blueprint: Blueprint, max_minutes: u32) -> u32 {
             // prune based on the possible achieavable score compared to the best so far
             let remaining_time = max_minutes - state.minute;
             if remaining_time <= 8 {
-                // each of those is previous number + self, i.e. 3 => 6 implies 4 => 4 + 6 = 10.
-                let possible_to_open_additional_geodes_with_new_bots = match remaining_time {
-                    1 => 1,
-                    2 => 3,
-                    3 => 6,
-                    4 => 10,
-                    5 => 15,
-                    6 => 21,
-                    7 => 28,
-                    8 => 36,
-                    _ => panic!("cannot calculate for {remaining_time}"),
-                };
-                if state.geodes + remaining_time * state.geode_bots + possible_to_open_additional_geodes_with_new_bots
+                if state.geodes
+                    + remaining_time * state.geode_bots
+                    + POSSIBLE_GEODES_IN_REMAINING_TIME[(remaining_time - 1) as usize]
                     < best_open_geodes
                 {
                     continue;
@@ -219,8 +213,6 @@ fn p2(input: Vec<Blueprint>) -> u32 {
     input.par_iter().take(3).map(|&blueprint| evaluate(blueprint, 32)).map(|x| x as u32).product()
 }
 
-// p1 ans: 1703 [1384 ms]
-// p2 ans: 5301 [50612 ms]
 fn main() {
     let input = parse_input("../inputs/d19");
     let timer = Instant::now();
