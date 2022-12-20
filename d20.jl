@@ -1,11 +1,13 @@
 using Pipe
 
 mutable struct CircularDoubleLinkedList
+    # actual values in the list; maps "virtual position" to the corresponding value
+    # that virtual position (i.e., the original position in the list) works like an id of the node.
     nodes::Vector{Int64}
-    # maps virtual position in the linked list for each node with the next node
+    # maps virtual position for each node with the next node's virtual position/id
     # i.e., if next[id1] == id2, and next[id2] == id3, it means that id1 -> id2 -> id3
     next::Vector{Int64}
-    # same as next, but points to the previous node
+    # same as next, but points to the previous node instead
     prev::Vector{Int64}
 
     function CircularDoubleLinkedList(values::Vector{Int64})
@@ -85,10 +87,7 @@ function p1(list::CircularDoubleLinkedList)
     end
 
     zero_pos = findfirst(x -> x == 0, list.nodes)
-    n_1000 = next_by_n(list, zero_pos, 1000)
-    n_2000 = next_by_n(list, zero_pos, 2000)
-    n_3000 = next_by_n(list, zero_pos, 3000)
-    n_1000 + n_2000 + n_3000
+    map(idx -> next_by_n(list, zero_pos, idx), [1000, 2000, 3000]) |> sum
 end
 
 
@@ -103,10 +102,7 @@ function p2(list::CircularDoubleLinkedList)
     end
 
     zero_pos = findfirst(x -> x == 0, list.nodes)
-    n_1000 = next_by_n(list, zero_pos, 1000)
-    n_2000 = next_by_n(list, zero_pos, 2000)
-    n_3000 = next_by_n(list, zero_pos, 3000)
-    n_1000 + n_2000 + n_3000
+    map(idx -> next_by_n(list, zero_pos, idx), [1000, 2000, 3000]) |> sum
 end
 
 
