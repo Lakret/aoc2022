@@ -7,50 +7,29 @@ mutable struct CircularDoubleLinkedList
     next::Vector{Int64}
     # same as next, but points to the previous node
     prev::Vector{Int64}
-    first_idx::Int64
 
     function CircularDoubleLinkedList(values::Vector{Int64})
         nodes = deepcopy(values)
         next = [2:length(nodes); 1]
         prev = [length(nodes); 1:(length(nodes)-1)]
-        first_idx = 1
 
-        new(nodes, next, prev, first_idx)
+        new(nodes, next, prev)
     end
 end
+
 
 function parse_input(path)::CircularDoubleLinkedList
     values = @pipe read(path, String) |> chomp |> split .|> parse(Int64, _)
     CircularDoubleLinkedList(values)
 end
 
-function walk_once(list::CircularDoubleLinkedList, start_pos::Int64)::Vector{Int64}
-    res = [list.nodes[start_pos]]
-
-    pos = list.next[start_pos]
-    while pos != start_pos
-        push!(res, list.nodes[pos])
-        pos = list.next[pos]
-    end
-
-    res
-end
-
-function Base.show(io::IO, list::CircularDoubleLinkedList)
-    curr_order = walk_once(list, list.first_idx)
-    print(
-        io,
-        "CircularDoubleLinkedList(first_pos=$(list.first_idx), next=$(list.next), prev=$(list.prev), nodes=$(list.nodes))):\n\t$curr_order"
-    )
-end
 
 function move(list::CircularDoubleLinkedList, pos::Int64)
     if list.nodes[pos] == 0
         return
     end
 
-    delta = list.nodes[pos] # % length(list.nodes)
-    list.first_idx += delta
+    delta = list.nodes[pos] % (length(list.nodes) - 1)
 
     if delta > 0
         # ... -> [curr_prev] -> (curr) -> [curr_next] -> [curr_next_next] -> ...
@@ -88,13 +67,15 @@ function move(list::CircularDoubleLinkedList, pos::Int64)
     end
 end
 
+
 function next_by_n(list::CircularDoubleLinkedList, pos::Int64, n::Int64)::Int64
     pos = pos
-    for _ in 1:n #(n%length(list.nodes))
+    for _ in 1:(n%length(list.nodes))
         pos = list.next[pos]
     end
     list.nodes[pos]
 end
+
 
 function p1(list::CircularDoubleLinkedList)
     list = deepcopy(list)
@@ -103,10 +84,28 @@ function p1(list::CircularDoubleLinkedList)
         move(list, pos)
     end
 
-    @show zero_pos = findfirst(x -> x == 0, list.nodes)
-    @show n_1000 = next_by_n(list, zero_pos, 1000)
-    @show n_2000 = next_by_n(list, zero_pos, 2000)
-    @show n_3000 = next_by_n(list, zero_pos, 3000)
+    zero_pos = findfirst(x -> x == 0, list.nodes)
+    n_1000 = next_by_n(list, zero_pos, 1000)
+    n_2000 = next_by_n(list, zero_pos, 2000)
+    n_3000 = next_by_n(list, zero_pos, 3000)
+    n_1000 + n_2000 + n_3000
+end
+
+
+function p2(list::CircularDoubleLinkedList)
+    list = deepcopy(list)
+    list.nodes = list.nodes .* 811589153
+
+    for _ in 1:10
+        for pos = 1:length(list.nodes)
+            move(list, pos)
+        end
+    end
+
+    zero_pos = findfirst(x -> x == 0, list.nodes)
+    n_1000 = next_by_n(list, zero_pos, 1000)
+    n_2000 = next_by_n(list, zero_pos, 2000)
+    n_3000 = next_by_n(list, zero_pos, 3000)
     n_1000 + n_2000 + n_3000
 end
 
@@ -114,7 +113,8 @@ end
 input = parse_input("inputs/d20")
 test_input = parse_input("inputs/d20_test")
 
-# 13447 is too high
-# 13343 is too high
-@time @assert @show p1(test_input) == 3
-@time p1(input)
+@assert p1(test_input) == 3
+@time @assert @show p1(input) == 1591
+
+@assert p2(test_input) == 1623178306
+@time @assert @show p2(input) == 14579387544492
