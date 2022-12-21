@@ -137,6 +137,9 @@ D21.topological_order(input, "pgtp") |> length()
 D21.topological_order(input, "vrvh") |> length()
 D21.topological_order(input, "humn") |> length()
 
+D21.eval(input, "pgtp")
+D21.eval(input, "vrvh")
+
 D21.p2(test_input) == 301
 # 30 seconds for 1000 iterations => way too slow
 D21.p2(input)
