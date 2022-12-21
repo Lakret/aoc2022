@@ -45,11 +45,6 @@ defmodule D21 do
 
               "/" ->
                 a / b
-
-              "=" ->
-                IO.inspect(a, label: :root_a)
-                IO.inspect(b, label: :root_b)
-                nil
             end
 
           if not is_nil(res) do
@@ -63,25 +58,36 @@ defmodule D21 do
     end)
   end
 
-  def eval(input, env \\ %{}, stop_monkey \\ "root") do
+  def eval(input, stop_monkey, env \\ %{}) do
     if Map.has_key?(env, stop_monkey) do
       env[stop_monkey]
     else
       env = eval_once(input, env)
-      eval(input, env)
+      eval(input, stop_monkey, env)
     end
   end
 
   def p1(input) do
-    eval(input) |> round()
+    eval(input, "root") |> round()
   end
 
   def p2(input) do
     {_, monkey1, monkey2} = input["root"]
-    input = Map.put(input, "root", {"=", monkey1, monkey2})
-    input = Map.put(input, "humn", 1008)
-    IO.inspect(eval(input, %{}, monkey1), label: :left_monkey)
-    IO.inspect(eval(input, %{}, monkey2), label: :right_monkey)
+    input = Map.delete(input, "root")
+
+    Enum.reduce_while(1..10_000, nil, fn humn, acc ->
+      if rem(humn, 1000) == 0 do
+        IO.inspect(humn, label: :iteration)
+      end
+
+      input = Map.put(input, "humn", humn)
+
+      if eval(input, monkey1) == eval(input, monkey2) do
+        {:halt, humn}
+      else
+        {:cont, acc}
+      end
+    end)
   end
 end
 ```
@@ -100,9 +106,10 @@ D21.p1(input) == 291_425_799_367_130
 ```
 
 ```elixir
-D21.p2(test_input)
+D21.p2(test_input) == 301
 ```
 
 ```elixir
+# 30 seconds for 1000 iterations => way too slow
 D21.p2(input)
 ```
