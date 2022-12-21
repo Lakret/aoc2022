@@ -1,0 +1,108 @@
+# Day 21
+
+## Section
+
+```elixir
+defmodule D21 do
+  def parse_input(path) do
+    File.read!(path)
+    |> String.trim_trailing()
+    |> String.split("\n")
+    |> Enum.map(fn x ->
+      [name, op] = String.split(x, ": ")
+
+      case Integer.parse(op) do
+        {num, _} when is_integer(num) ->
+          {name, num}
+
+        :error ->
+          [a, op, b] = String.split(op, " ")
+          {name, {op, a, b}}
+      end
+    end)
+    |> Map.new()
+  end
+
+  def eval_once(input, env \\ %{}) do
+    Enum.reduce(input, env, fn
+      {name, num}, env when is_integer(num) ->
+        Map.put(env, name, num)
+
+      {name, {op, a, b}}, env ->
+        if Map.has_key?(env, a) and Map.has_key?(env, b) do
+          {a, b} = {env[a], env[b]}
+
+          res =
+            case op do
+              "+" ->
+                a + b
+
+              "-" ->
+                a - b
+
+              "*" ->
+                a * b
+
+              "/" ->
+                a / b
+
+              "=" ->
+                IO.inspect(a, label: :root_a)
+                IO.inspect(b, label: :root_b)
+                nil
+            end
+
+          if not is_nil(res) do
+            Map.put(env, name, res)
+          else
+            env
+          end
+        else
+          env
+        end
+    end)
+  end
+
+  def eval(input, env \\ %{}, stop_monkey \\ "root") do
+    if Map.has_key?(env, stop_monkey) do
+      env[stop_monkey]
+    else
+      env = eval_once(input, env)
+      eval(input, env)
+    end
+  end
+
+  def p1(input) do
+    eval(input) |> round()
+  end
+
+  def p2(input) do
+    {_, monkey1, monkey2} = input["root"]
+    input = Map.put(input, "root", {"=", monkey1, monkey2})
+    input = Map.put(input, "humn", 1008)
+    IO.inspect(eval(input, %{}, monkey1), label: :left_monkey)
+    IO.inspect(eval(input, %{}, monkey2), label: :right_monkey)
+  end
+end
+```
+
+```elixir
+input = D21.parse_input("inputs/d21")
+test_input = D21.parse_input("inputs/d21_test")
+```
+
+```elixir
+D21.p1(test_input) == 152
+```
+
+```elixir
+D21.p1(input) == 291_425_799_367_130
+```
+
+```elixir
+D21.p2(test_input)
+```
+
+```elixir
+D21.p2(input)
+```
