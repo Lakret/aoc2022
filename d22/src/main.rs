@@ -34,79 +34,88 @@ impl Board {
 
         for &step in &self.path {
             match step {
-                Step::Move { tiles } => match curr_facing {
-                    Facing::Right => {
-                        for _ in 0..tiles {
-                            let mut new_col = curr_col + 1;
-                            if new_col >= self.rows[curr_row].end_col {
-                                new_col = self.rows[curr_row].start_col;
+                Step::Move { tiles } => {
+                    // TODO: dbg!((curr_row, curr_col, curr_facing, &step));
+                    if curr_col < self.rows[curr_row].start_col || curr_col >= self.rows[curr_row].end_col {
+                        panic!("outside the field at #{curr_row}, #{curr_col}, #{curr_facing:#?}.")
+                    }
+
+                    match curr_facing {
+                        Facing::Right => {
+                            for _ in 0..tiles {
+                                let mut new_col = curr_col + 1;
+                                if new_col >= self.rows[curr_row].end_col {
+                                    new_col = self.rows[curr_row].start_col;
+                                }
+
+                                if !self.rows[curr_row].walls.contains(&new_col) {
+                                    curr_col = new_col;
+
+                                    trace.insert((curr_row, curr_col), curr_facing);
+                                }
                             }
+                        }
+                        Facing::Left => {
+                            for _ in 0..tiles {
+                                let mut new_col = curr_col.saturating_sub(1);
+                                if curr_col == 0 || new_col < self.rows[curr_row].start_col {
+                                    new_col = self.rows[curr_row].end_col - 1;
+                                }
 
-                            if !self.rows[curr_row].walls.contains(&new_col) {
-                                curr_col = new_col;
+                                if !self.rows[curr_row].walls.contains(&new_col) {
+                                    curr_col = new_col;
 
-                                trace.insert((curr_row, curr_col), curr_facing);
+                                    trace.insert((curr_row, curr_col), curr_facing);
+                                }
+                            }
+                        }
+                        Facing::Down => {
+                            for _ in 0..tiles {
+                                let mut new_row = curr_row + 1;
+                                if new_row >= self.rows.len()
+                                    || curr_col < self.rows[new_row].start_col
+                                    || curr_col >= self.rows[new_row].end_col
+                                {
+                                    new_row = self
+                                        .rows
+                                        .iter()
+                                        .position(|row| curr_col >= row.start_col && curr_col < row.end_col)
+                                        .unwrap();
+                                }
+
+                                if !self.rows[new_row].walls.contains(&curr_col) {
+                                    curr_row = new_row;
+
+                                    trace.insert((curr_row, curr_col), curr_facing);
+                                }
+                            }
+                        }
+                        Facing::Up => {
+                            for _ in 0..tiles {
+                                let mut new_row = curr_row.saturating_sub(1);
+                                if curr_row == 0
+                                    || curr_col < self.rows[new_row].start_col
+                                    || curr_col >= self.rows[new_row].end_col
+                                {
+                                    new_row = self
+                                        .rows
+                                        .iter()
+                                        .enumerate()
+                                        .rev()
+                                        .find(|(_row_idx, row)| curr_col >= row.start_col && curr_col < row.end_col)
+                                        .unwrap()
+                                        .0;
+                                }
+
+                                if !self.rows[new_row].walls.contains(&curr_col) {
+                                    curr_row = new_row;
+
+                                    trace.insert((curr_row, curr_col), curr_facing);
+                                }
                             }
                         }
                     }
-                    Facing::Left => {
-                        for _ in 0..tiles {
-                            let mut new_col = curr_col.saturating_sub(1);
-                            if curr_col == 0 || new_col < self.rows[curr_row].start_col {
-                                new_col = self.rows[curr_row].end_col - 1;
-                            }
-
-                            if !self.rows[curr_row].walls.contains(&new_col) {
-                                curr_col = new_col;
-
-                                trace.insert((curr_row, curr_col), curr_facing);
-                            }
-                        }
-                    }
-                    Facing::Down => {
-                        for _ in 0..tiles {
-                            let mut new_row = curr_row + 1;
-                            if new_row >= self.rows.len()
-                                || curr_col < self.rows[new_row].start_col
-                                || curr_col >= self.rows[new_row].end_col
-                            {
-                                new_row = self
-                                    .rows
-                                    .iter()
-                                    .position(|row| curr_col >= row.start_col && curr_col < row.end_col)
-                                    .unwrap();
-                            }
-
-                            if !self.rows[new_row].walls.contains(&curr_col) {
-                                curr_row = new_row;
-
-                                trace.insert((curr_row, curr_col), curr_facing);
-                            }
-                        }
-                    }
-                    Facing::Up => {
-                        for _ in 0..tiles {
-                            let mut new_row = curr_row.saturating_sub(1);
-                            if curr_row == 0
-                                || curr_col < self.rows[new_row].start_col
-                                || curr_col >= self.rows[new_row].end_col
-                            {
-                                new_row = self
-                                    .rows
-                                    .iter()
-                                    .rev()
-                                    .position(|row| curr_col >= row.start_col && curr_col < row.end_col)
-                                    .unwrap();
-                            }
-
-                            if !self.rows[new_row].walls.contains(&curr_col) {
-                                curr_row = new_row;
-
-                                trace.insert((curr_row, curr_col), curr_facing);
-                            }
-                        }
-                    }
-                },
+                }
                 Step::TurnL => {
                     curr_facing = curr_facing.turn_l();
 
@@ -260,7 +269,7 @@ fn parse_input(path: &str) -> Board {
 }
 
 fn p1(board: &Board) -> usize {
-    let (row, col, facing) = dbg!(board.walk());
+    let (row, col, facing) = board.walk();
     (row + 1) * 1000 + (col + 1) * 4 + (facing as usize)
 }
 
@@ -278,9 +287,7 @@ mod tests {
         assert_eq!(p1(&test_input), 6032);
 
         let input = parse_input("../inputs/d22");
-        // TODO: too high!
-        dbg!(&input.rows[0]);
-        assert_eq!(p1(&input), 151016);
+        assert_eq!(p1(&input), 89224);
         // let input = parse_input("../inputs/d22");
     }
 }
