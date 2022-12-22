@@ -1,4 +1,7 @@
-use std::{collections::HashSet, fs};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Row {
@@ -27,6 +30,8 @@ impl Board {
         let mut curr_col = self.rows[0].start_col;
         let mut curr_facing = Facing::Right;
 
+        let mut trace = HashMap::new();
+
         for &step in &self.path {
             match step {
                 Step::Move { tiles } => match curr_facing {
@@ -38,7 +43,9 @@ impl Board {
                             }
 
                             if !self.rows[curr_row].walls.contains(&new_col) {
-                                curr_col = new_col
+                                curr_col = new_col;
+
+                                trace.insert((curr_row, curr_col), curr_facing);
                             }
                         }
                     }
@@ -50,7 +57,9 @@ impl Board {
                             }
 
                             if !self.rows[curr_row].walls.contains(&new_col) {
-                                curr_col = new_col
+                                curr_col = new_col;
+
+                                trace.insert((curr_row, curr_col), curr_facing);
                             }
                         }
                     }
@@ -69,7 +78,9 @@ impl Board {
                             }
 
                             if !self.rows[new_row].walls.contains(&curr_col) {
-                                curr_row = new_row
+                                curr_row = new_row;
+
+                                trace.insert((curr_row, curr_col), curr_facing);
                             }
                         }
                     }
@@ -89,17 +100,63 @@ impl Board {
                             }
 
                             if !self.rows[new_row].walls.contains(&curr_col) {
-                                curr_row = new_row
+                                curr_row = new_row;
+
+                                trace.insert((curr_row, curr_col), curr_facing);
                             }
                         }
                     }
                 },
-                Step::TurnL => curr_facing = curr_facing.turn_l(),
-                Step::TurnR => curr_facing = curr_facing.turn_r(),
+                Step::TurnL => {
+                    curr_facing = curr_facing.turn_l();
+
+                    trace.insert((curr_row, curr_col), curr_facing);
+                }
+                Step::TurnR => {
+                    curr_facing = curr_facing.turn_r();
+
+                    trace.insert((curr_row, curr_col), curr_facing);
+                }
             }
         }
 
+        print_trace(self, trace);
+
         (curr_row, curr_col, curr_facing)
+    }
+}
+
+fn print_trace(board: &Board, trace: HashMap<(usize, usize), Facing>) {
+    for (row_idx, row) in board.rows.iter().enumerate() {
+        for col_idx in 0..row.end_col {
+            match trace.get(&(row_idx, col_idx)) {
+                None => {
+                    if row.walls.contains(&col_idx) {
+                        print!("#");
+                    } else {
+                        if col_idx >= row.start_col {
+                            print!(".");
+                        } else {
+                            print!(" ");
+                        }
+                    }
+                }
+                Some(facing) => {
+                    // outside the field at #0, #30, #Right.
+                    if row.walls.contains(&col_idx) {
+                        panic!("standing in the wall at #{row_idx}, #{col_idx}, #{facing:#?}.")
+                    }
+
+                    if col_idx < row.start_col {
+                        panic!("outside the field at #{row_idx}, #{col_idx}, #{facing:#?}.")
+                    }
+
+                    print!("P");
+                }
+            }
+        }
+
+        println!("");
     }
 }
 
@@ -203,7 +260,7 @@ fn parse_input(path: &str) -> Board {
 }
 
 fn p1(board: &Board) -> usize {
-    let (row, col, facing) = board.walk();
+    let (row, col, facing) = dbg!(board.walk());
     (row + 1) * 1000 + (col + 1) * 4 + (facing as usize)
 }
 
@@ -222,6 +279,7 @@ mod tests {
 
         let input = parse_input("../inputs/d22");
         // TODO: too high!
+        dbg!(&input.rows[0]);
         assert_eq!(p1(&input), 151016);
         // let input = parse_input("../inputs/d22");
     }
