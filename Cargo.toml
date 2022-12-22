@@ -5,7 +5,8 @@ members = [
     "d09",
     "d11",
     "d15",
-    "d19"
+    "d19",
+    "d22"
 ]
 
 [profile.test]
