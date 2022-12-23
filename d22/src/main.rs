@@ -1,6 +1,9 @@
+use lazy_static::lazy_static;
 use std::{
     collections::{HashMap, HashSet},
     fs,
+    ops::Range,
+    time::Instant,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,6 +19,89 @@ enum Step {
     Move { tiles: i64 },
     TurnL,
     TurnR,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Facing {
+    Right,
+    Down,
+    Left,
+    Up,
+}
+
+use Facing::*;
+
+impl Facing {
+    fn turn_r(self) -> Facing {
+        match self {
+            Right => Down,
+            Down => Left,
+            Left => Up,
+            Up => Right,
+        }
+    }
+
+    fn turn_l(self) -> Facing {
+        match self {
+            Right => Up,
+            Down => Right,
+            Left => Down,
+            Up => Left,
+        }
+    }
+}
+
+impl Into<usize> for Facing {
+    fn into(self) -> usize {
+        match self {
+            Right => 0,
+            Down => 1,
+            Left => 2,
+            Up => 3,
+        }
+    }
+}
+
+/// left, right, up, and down ids are assigned to the adjacent face ids at the corresponding directions
+/// if the current face is "front" of the cube
+#[derive(Debug, Clone)]
+struct Face {
+    id: usize,
+    rows: Range<usize>,
+    cols: Range<usize>,
+    left: Transition,
+    right: Transition,
+    up: Transition,
+    down: Transition,
+}
+
+/// `swap` is `true` when we need to swap cols & rows
+#[derive(Debug, Clone, Copy)]
+struct Transition {
+    face_id: usize,
+    facing: Facing,
+    swap: bool,
+    col_delta: i64,
+    row_delta: i64,
+}
+
+lazy_static! {
+    static ref TEST_FACES: [Face; 1] = [
+        Face {
+            id: 0,
+            rows: 0..4,
+            cols: 8..12,
+            left: Transition { face_id: 2, facing: Down, swap: true, col_delta: 0, row_delta: 0 },
+            right: Transition { face_id: 5, facing: Left, swap: false, col_delta: 4, row_delta: 4 },
+            up: Transition { face_id: 1, facing: Down, swap: false, col_delta: -4, row_delta: 4 },
+            down: Transition { face_id: 3, facing: Down, swap: false, col_delta: 0, row_delta: 0 },
+        },
+//         // Face { id: 1, rows: 4..8, cols: 0..4, left_id: 2, right_id: 5, up_id: 4, down_id: 0 },
+//         // Face { id: 2, rows: 4..8, cols: 4..8, left_id: 3, right_id: 1, up_id: 4, down_id: 0 },
+//         // Face { id: 3, rows: 4..8, cols: 8..12, left_id: 5, right_id: 2, up_id: 4, down_id: 0 },
+//         // Face { id: 4, rows: 8..12, cols: 8..12, left_id: 2, right_id: 5, up_id: 3, down_id: 1 },
+//         // Face { id: 5, rows: 8..12, cols: 12..16, left_id: 4, right_id: 0, up_id: 3, down_id: 2 }
+    ];
 }
 
 #[derive(Debug, Clone, Default)]
@@ -169,47 +255,6 @@ fn print_trace(board: &Board, trace: HashMap<(usize, usize), Facing>) {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Facing {
-    Right,
-    Down,
-    Left,
-    Up,
-}
-
-use Facing::*;
-
-impl Facing {
-    fn turn_r(self) -> Facing {
-        match self {
-            Right => Down,
-            Down => Left,
-            Left => Up,
-            Up => Right,
-        }
-    }
-
-    fn turn_l(self) -> Facing {
-        match self {
-            Right => Up,
-            Down => Right,
-            Left => Down,
-            Up => Left,
-        }
-    }
-}
-
-impl Into<usize> for Facing {
-    fn into(self) -> usize {
-        match self {
-            Right => 0,
-            Down => 1,
-            Left => 2,
-            Up => 3,
-        }
-    }
-}
-
 fn add_path_digit(board: &mut Board, digits: &mut Vec<char>) {
     if !digits.is_empty() {
         let tiles = String::from_iter(digits.iter()).parse().unwrap();
@@ -274,7 +319,12 @@ fn p1(board: &Board) -> usize {
 }
 
 fn main() {
-    println!("Hello, world!");
+    let input = parse_input("../inputs/d22");
+
+    let timer = Instant::now();
+    let p1_ans = p1(&input);
+    let elapsed = timer.elapsed();
+    println!("p1 ans = {p1_ans} [{elapsed:?}]")
 }
 
 #[cfg(test)]
@@ -288,6 +338,5 @@ mod tests {
 
         let input = parse_input("../inputs/d22");
         assert_eq!(p1(&input), 89224);
-        // let input = parse_input("../inputs/d22");
     }
 }
