@@ -507,7 +507,7 @@ lazy_static! {
         Face {
             rows: 0..50,
             cols: 50..100,
-            left: Transition { face_id: 3, facing: Right, swap: false, inv_row: true, inv_col: false },
+            left: Transition { face_id: 3, facing: Left, swap: false, inv_row: true, inv_col: false },
             right: Transition { face_id: 1, facing: Right, swap: false, inv_row: false, inv_col: true },
             up: Transition { face_id: 5, facing: Right, swap: true, inv_row: false, inv_col: false },
             down: Transition { face_id: 2, facing: Down, swap: false, inv_row: true, inv_col: false },
@@ -569,8 +569,7 @@ fn main() {
     println!("p1 ans = {p1_ans} [{elapsed:?}]");
 
     // 130315 is too low
-    // 117228 is also not right, I'd guess
-    // 19503 ???
+    // 142285 is too high
     let timer = Instant::now();
     let p2_ans = p2(&input, &FACES, 50);
     let elapsed = timer.elapsed();
@@ -629,7 +628,7 @@ mod tests {
     fn move_to_face_actual_input_test() {
         let size = 50;
 
-        assert_eq!(move_to_face(&FACES, size, 0, Left, 1, 0), (3, Right, 48, 0));
+        assert_eq!(move_to_face(&FACES, size, 0, Left, 1, 0), (3, Left, 48, 0));
         assert_eq!(move_to_face(&FACES, size, 0, Right, 1, 49), (1, Right, 1, 0));
         assert_eq!(move_to_face(&FACES, size, 0, Up, 0, 1), (5, Right, 1, 0));
         assert_eq!(move_to_face(&FACES, size, 0, Down, 49, 1), (2, Down, 0, 1));
