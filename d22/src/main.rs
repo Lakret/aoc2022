@@ -8,8 +8,7 @@ use std::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Row {
-    start_col: usize,
-    end_col: usize,
+    cols: Range<usize>,
     // column numbers only
     walls: HashSet<usize>,
 }
@@ -71,7 +70,7 @@ struct Board {
 impl Board {
     fn walk(&self) -> (usize, usize, Facing) {
         let mut curr_row = 0;
-        let mut curr_col = self.rows[0].start_col;
+        let mut curr_col = self.rows[0].cols.start;
         let mut curr_facing = Facing::Right;
 
         let mut trace = HashMap::new();
@@ -79,7 +78,7 @@ impl Board {
         for &step in &self.path {
             match step {
                 Step::Move { tiles } => {
-                    if curr_col < self.rows[curr_row].start_col || curr_col >= self.rows[curr_row].end_col {
+                    if !self.rows[curr_row].cols.contains(&curr_col) {
                         panic!("outside the field at #{curr_row}, #{curr_col}, #{curr_facing:#?}.")
                     }
 
@@ -87,8 +86,8 @@ impl Board {
                         Facing::Right => {
                             for _ in 0..tiles {
                                 let mut new_col = curr_col + 1;
-                                if new_col >= self.rows[curr_row].end_col {
-                                    new_col = self.rows[curr_row].start_col;
+                                if new_col >= self.rows[curr_row].cols.end {
+                                    new_col = self.rows[curr_row].cols.start;
                                 }
 
                                 if !self.rows[curr_row].walls.contains(&new_col) {
@@ -101,8 +100,8 @@ impl Board {
                         Facing::Left => {
                             for _ in 0..tiles {
                                 let mut new_col = curr_col.saturating_sub(1);
-                                if curr_col == 0 || new_col < self.rows[curr_row].start_col {
-                                    new_col = self.rows[curr_row].end_col - 1;
+                                if curr_col == 0 || new_col < self.rows[curr_row].cols.start {
+                                    new_col = self.rows[curr_row].cols.end - 1;
                                 }
 
                                 if !self.rows[curr_row].walls.contains(&new_col) {
@@ -115,15 +114,8 @@ impl Board {
                         Facing::Down => {
                             for _ in 0..tiles {
                                 let mut new_row = curr_row + 1;
-                                if new_row >= self.rows.len()
-                                    || curr_col < self.rows[new_row].start_col
-                                    || curr_col >= self.rows[new_row].end_col
-                                {
-                                    new_row = self
-                                        .rows
-                                        .iter()
-                                        .position(|row| curr_col >= row.start_col && curr_col < row.end_col)
-                                        .unwrap();
+                                if new_row >= self.rows.len() || !self.rows[new_row].cols.contains(&curr_col) {
+                                    new_row = self.rows.iter().position(|row| row.cols.contains(&curr_col)).unwrap();
                                 }
 
                                 if !self.rows[new_row].walls.contains(&curr_col) {
@@ -136,16 +128,13 @@ impl Board {
                         Facing::Up => {
                             for _ in 0..tiles {
                                 let mut new_row = curr_row.saturating_sub(1);
-                                if curr_row == 0
-                                    || curr_col < self.rows[new_row].start_col
-                                    || curr_col >= self.rows[new_row].end_col
-                                {
+                                if curr_row == 0 || !self.rows[new_row].cols.contains(&curr_col) {
                                     new_row = self
                                         .rows
                                         .iter()
                                         .enumerate()
                                         .rev()
-                                        .find(|(_row_idx, row)| curr_col >= row.start_col && curr_col < row.end_col)
+                                        .find(|(_row_idx, row)| row.cols.contains(&curr_col))
                                         .unwrap()
                                         .0;
                                 }
@@ -180,13 +169,13 @@ impl Board {
 
 fn print_trace(board: &Board, trace: HashMap<(usize, usize), Facing>) {
     for (row_idx, row) in board.rows.iter().enumerate() {
-        for col_idx in 0..row.end_col {
+        for col_idx in 0..row.cols.end {
             match trace.get(&(row_idx, col_idx)) {
                 None => {
                     if row.walls.contains(&col_idx) {
                         print!("#");
                     } else {
-                        if col_idx >= row.start_col {
+                        if col_idx >= row.cols.start {
                             print!(".");
                         } else {
                             print!(" ");
@@ -199,7 +188,7 @@ fn print_trace(board: &Board, trace: HashMap<(usize, usize), Facing>) {
                         panic!("standing in the wall at #{row_idx}, #{col_idx}, #{facing:#?}.")
                     }
 
-                    if col_idx < row.start_col {
+                    if col_idx < row.cols.start {
                         panic!("outside the field at #{row_idx}, #{col_idx}, #{facing:#?}.")
                     }
 
@@ -264,7 +253,7 @@ fn parse_input(path: &str) -> Board {
             }
 
             end_col += start_col;
-            board.rows.push(Row { start_col, end_col, walls })
+            board.rows.push(Row { cols: start_col..end_col, walls })
         }
     }
     board
@@ -370,8 +359,6 @@ fn walk_on_cube(board: &Board, faces: &[Face; 6], size: usize) -> (usize, usize,
     let mut curr_col = 0;
     let mut curr_facing = Right;
 
-    // let mut trace = HashMap::new();
-
     for &step in &board.path {
         match step {
             Step::Move { tiles } => {
@@ -429,22 +416,17 @@ fn walk_on_cube(board: &Board, faces: &[Face; 6], size: usize) -> (usize, usize,
                         curr_row = new_row;
                         curr_col = new_col;
                         curr_facing = new_facing;
-                        // trace.insert((curr_row, curr_col), curr_facing);
                     }
                 }
             }
             Step::TurnL => {
                 curr_facing = curr_facing.turn_l();
-                // trace.insert((curr_row, curr_col), curr_facing);
             }
             Step::TurnR => {
                 curr_facing = curr_facing.turn_r();
-                // trace.insert((curr_row, curr_col), curr_facing);
             }
         }
     }
-
-    // print_trace(board, trace);
 
     (faces[curr_face].rows.start + curr_row, faces[curr_face].cols.start + curr_col, curr_facing)
 }
@@ -566,11 +548,8 @@ fn main() {
     let timer = Instant::now();
     let p1_ans = p1(&input);
     let elapsed = timer.elapsed();
-    println!("p1 ans = {p1_ans} [{elapsed:?}]");
+    println!("\np1 ans = {p1_ans} [{elapsed:?}]");
 
-    // 130315 is too low
-    // 142285 is too high
-    // 136182
     let timer = Instant::now();
     let p2_ans = p2(&input, &FACES, 50);
     let elapsed = timer.elapsed();
@@ -664,9 +643,9 @@ mod tests {
     fn board_coords_to_face_coords_test() {
         let test_input = parse_input("../inputs/d22_test");
 
-        assert_eq!(board_coords_to_face_coords(&TEST_FACES, 0, test_input.rows[0].start_col), (0, 0, 0));
-        assert_eq!(board_coords_to_face_coords(&TEST_FACES, 0, test_input.rows[0].start_col + 1), (0, 0, 1));
-        assert_eq!(board_coords_to_face_coords(&TEST_FACES, 1, test_input.rows[0].start_col), (0, 1, 0));
+        assert_eq!(board_coords_to_face_coords(&TEST_FACES, 0, test_input.rows[0].cols.start), (0, 0, 0));
+        assert_eq!(board_coords_to_face_coords(&TEST_FACES, 0, test_input.rows[0].cols.start + 1), (0, 0, 1));
+        assert_eq!(board_coords_to_face_coords(&TEST_FACES, 1, test_input.rows[0].cols.start), (0, 1, 0));
         assert_eq!(board_coords_to_face_coords(&TEST_FACES, 5, 7), (2, 1, 3));
     }
 
