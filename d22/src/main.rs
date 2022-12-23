@@ -283,7 +283,6 @@ fn p1(board: &Board) -> usize {
 /// `rows` and `cols` map relative face coordinates to the oritinal net coordinates
 #[derive(Debug, Clone)]
 struct Face {
-    id: usize,
     rows: Range<usize>,
     cols: Range<usize>,
     left: Transition,
@@ -453,7 +452,6 @@ fn walk_on_cube(board: &Board, faces: &[Face; 6], size: usize) -> (usize, usize,
 lazy_static! {
     static ref TEST_FACES: [Face; 6] = [
         Face {
-            id: 0,
             rows: 0..4,
             cols: 8..12,
             left: Transition { face_id: 2, facing: Down, swap: true, inv_row: false, inv_col: false },
@@ -462,7 +460,6 @@ lazy_static! {
             down: Transition { face_id: 3, facing: Down, swap: false, inv_row: true, inv_col: false },
         },
         Face {
-            id: 1,
             rows: 4..8,
             cols: 0..4,
             left: Transition { face_id: 5, facing: Up, swap: true, inv_row: true, inv_col: true },
@@ -471,7 +468,6 @@ lazy_static! {
             down: Transition { face_id: 4, facing: Up, swap: false, inv_row: false, inv_col: true }
         },
         Face {
-            id: 2,
             rows: 4..8,
             cols: 4..8,
             left: Transition { face_id: 1, facing: Left, swap: false, inv_row: false, inv_col: true },
@@ -480,7 +476,6 @@ lazy_static! {
             down: Transition { face_id: 4, facing: Right, swap: true, inv_row: true, inv_col: true }
         },
         Face {
-            id: 3,
             rows: 4..8,
             cols: 8..12,
             left: Transition { face_id: 2, facing: Left, swap: false, inv_row: false, inv_col: true },
@@ -489,7 +484,6 @@ lazy_static! {
             down: Transition { face_id: 4, facing: Down, swap: false, inv_row: true, inv_col: false }
         },
         Face {
-            id: 4,
             rows: 8..12,
             cols: 8..12,
             left: Transition { face_id: 2, facing: Up, swap: true, inv_row: true, inv_col: true },
@@ -498,13 +492,65 @@ lazy_static! {
             down: Transition { face_id: 1, facing: Up, swap: false, inv_row: false, inv_col: true }
         },
         Face {
-            id: 5,
             rows: 8..12,
             cols: 12..16,
             left: Transition { face_id: 4, facing: Left, swap: false, inv_row: false, inv_col: true },
             right: Transition { face_id: 0, facing: Left, swap: false, inv_row: true, inv_col: false },
             up: Transition { face_id: 3, facing: Right, swap: true, inv_row: true, inv_col: true },
             down: Transition { face_id: 1, facing: Right, swap: true, inv_row: true, inv_col: true }
+        }
+    ];
+    //
+    // NOTE: you'll need to adjust this for your input!
+    //
+    static ref FACES: [Face; 6] = [
+        Face {
+            rows: 0..50,
+            cols: 50..100,
+            left: Transition { face_id: 3, facing: Left, swap: false, inv_row: true, inv_col: false },
+            right: Transition { face_id: 1, facing: Right, swap: false, inv_row: false, inv_col: true },
+            up: Transition { face_id: 5, facing: Right, swap: true, inv_row: false, inv_col: false },
+            down: Transition { face_id: 2, facing: Down, swap: false, inv_row: true, inv_col: false },
+        },
+        Face {
+            rows: 0..50,
+            cols: 100..150,
+            left: Transition { face_id: 0, facing: Left, swap: false, inv_row: false, inv_col: true },
+            right: Transition { face_id: 4, facing: Left, swap: false, inv_row: true, inv_col: false },
+            up: Transition { face_id: 5, facing: Up, swap: false, inv_row: true, inv_col: false },
+            down: Transition { face_id: 2, facing: Left, swap: true, inv_row: false, inv_col: false }
+        },
+        Face {
+            rows: 50..100,
+            cols: 50..100,
+            left: Transition { face_id: 3, facing: Down, swap: true, inv_row: false, inv_col: false },
+            right: Transition { face_id: 1, facing: Up, swap: true, inv_row: false, inv_col: false },
+            up: Transition { face_id: 0, facing: Up, swap: false, inv_row: true, inv_col: false },
+            down: Transition { face_id: 4, facing: Down, swap: false, inv_row: true, inv_col: false }
+        },
+        Face {
+            rows: 100..150,
+            cols: 0..50,
+            left: Transition { face_id: 0, facing: Right, swap: false, inv_row: true, inv_col: false },
+            right: Transition { face_id: 4, facing: Right, swap: false, inv_row: false, inv_col: true },
+            up: Transition { face_id: 2, facing: Right, swap: true, inv_row: false, inv_col: false },
+            down: Transition { face_id: 5, facing: Down, swap: false, inv_row: true, inv_col: false }
+        },
+        Face {
+            rows: 100..150,
+            cols: 50..100,
+            left: Transition { face_id: 3, facing: Left, swap: false, inv_row: false, inv_col: true },
+            right: Transition { face_id: 1, facing: Right, swap: false, inv_row: true, inv_col: false },
+            up: Transition { face_id: 2, facing: Up, swap: false, inv_row: true, inv_col: false },
+            down: Transition { face_id: 5, facing: Right, swap: true, inv_row: false, inv_col: false }
+        },
+        Face {
+            rows: 150..200,
+            cols: 0..50,
+            left: Transition { face_id: 0, facing: Down, swap: true, inv_row: false, inv_col: false },
+            right: Transition { face_id: 4, facing: Up, swap: true, inv_row: false, inv_col: false },
+            up: Transition { face_id: 3, facing: Up, swap: false, inv_row: true, inv_col: false },
+            down: Transition { face_id: 1, facing: Down, swap: false, inv_row: true, inv_col: false }
         }
     ];
 }
@@ -520,7 +566,13 @@ fn main() {
     let timer = Instant::now();
     let p1_ans = p1(&input);
     let elapsed = timer.elapsed();
-    println!("p1 ans = {p1_ans} [{elapsed:?}]")
+    println!("p1 ans = {p1_ans} [{elapsed:?}]");
+
+    // 130315 is too low
+    let timer = Instant::now();
+    let p2_ans = p2(&input, &FACES, 50);
+    let elapsed = timer.elapsed();
+    println!("p2 ans = {p2_ans} [{elapsed:?}]");
 }
 
 #[cfg(test)]
@@ -569,6 +621,41 @@ mod tests {
         assert_eq!(move_to_face(&TEST_FACES, size, 5, Right, 1, 3), (0, Left, 2, 3));
         assert_eq!(move_to_face(&TEST_FACES, size, 5, Up, 0, 1), (3, Right, 2, 3));
         assert_eq!(move_to_face(&TEST_FACES, size, 5, Down, 3, 1), (1, Right, 2, 0));
+    }
+
+    #[test]
+    fn move_to_face_actual_input_test() {
+        let size = 50;
+
+        assert_eq!(move_to_face(&FACES, size, 0, Left, 1, 0), (3, Left, 48, 0));
+        assert_eq!(move_to_face(&FACES, size, 0, Right, 1, 49), (1, Right, 1, 0));
+        assert_eq!(move_to_face(&FACES, size, 0, Up, 0, 1), (5, Right, 1, 0));
+        assert_eq!(move_to_face(&FACES, size, 0, Down, 49, 1), (2, Down, 0, 1));
+
+        assert_eq!(move_to_face(&FACES, size, 1, Left, 1, 0), (0, Left, 1, 49));
+        assert_eq!(move_to_face(&FACES, size, 1, Right, 1, 49), (4, Left, 48, 49));
+        assert_eq!(move_to_face(&FACES, size, 1, Up, 0, 1), (5, Up, 49, 1));
+        assert_eq!(move_to_face(&FACES, size, 1, Down, 49, 1), (2, Left, 1, 49));
+
+        assert_eq!(move_to_face(&FACES, size, 2, Left, 1, 0), (3, Down, 0, 1));
+        assert_eq!(move_to_face(&FACES, size, 2, Right, 1, 49), (1, Up, 49, 1));
+        assert_eq!(move_to_face(&FACES, size, 2, Up, 0, 1), (0, Up, 49, 1));
+        assert_eq!(move_to_face(&FACES, size, 2, Down, 49, 1), (4, Down, 0, 1));
+
+        assert_eq!(move_to_face(&FACES, size, 3, Left, 1, 0), (0, Right, 48, 0));
+        assert_eq!(move_to_face(&FACES, size, 3, Right, 1, 49), (4, Right, 1, 0));
+        assert_eq!(move_to_face(&FACES, size, 3, Up, 0, 1), (2, Right, 1, 0));
+        assert_eq!(move_to_face(&FACES, size, 3, Down, 49, 1), (5, Down, 0, 1));
+
+        assert_eq!(move_to_face(&FACES, size, 4, Left, 1, 0), (3, Left, 1, 49));
+        assert_eq!(move_to_face(&FACES, size, 4, Right, 1, 49), (1, Right, 48, 49));
+        assert_eq!(move_to_face(&FACES, size, 4, Up, 0, 1), (2, Up, 49, 1));
+        assert_eq!(move_to_face(&FACES, size, 4, Down, 49, 1), (5, Right, 1, 49));
+
+        assert_eq!(move_to_face(&FACES, size, 5, Left, 1, 0), (0, Down, 0, 1));
+        assert_eq!(move_to_face(&FACES, size, 5, Right, 1, 49), (4, Up, 49, 1));
+        assert_eq!(move_to_face(&FACES, size, 5, Up, 0, 1), (3, Up, 49, 1));
+        assert_eq!(move_to_face(&FACES, size, 5, Down, 49, 1), (1, Down, 0, 1));
     }
 
     #[test]
