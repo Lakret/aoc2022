@@ -75,32 +75,109 @@ struct Face {
     down: Transition,
 }
 
-/// `swap` is `true` when we need to swap cols & rows
+/// `swap` is `true` when we need to swap cols & rows coordinates, i.e. (2, 3) becomes (3, 2)
+/// `inv_row` is `true` when instead of arriving at a 0 relative row on the new face from 3 row on the previous face,
+///  we arrive at row 3 on the new face
+/// `inv_col` is `true` when instead of arriving at 0 relative column on the new face we arrive at column 3
 #[derive(Debug, Clone, Copy)]
 struct Transition {
     face_id: usize,
     facing: Facing,
     swap: bool,
-    col_delta: i64,
-    row_delta: i64,
+    inv_row: bool,
+    inv_col: bool,
+}
+
+/// returns (new_face_id, new_facing, new_relative_row_id, new_relative_col_id)
+fn move_to_face(
+    faces: &[Face; 6],
+    size: usize,
+    from_face_id: usize,
+    facing: Facing,
+    row_id: usize,
+    col_id: usize,
+) -> (usize, Facing, usize, usize) {
+    let transition = match facing {
+        Left => faces[from_face_id].left,
+        Right => faces[from_face_id].right,
+        Down => faces[from_face_id].down,
+        Up => faces[from_face_id].up,
+    };
+
+    let mut row_id = row_id;
+    let mut col_id = col_id;
+
+    if transition.swap {
+        std::mem::swap(&mut row_id, &mut col_id);
+    }
+
+    if transition.inv_row {
+        row_id = size - row_id - 1;
+    }
+
+    if transition.inv_col {
+        col_id = size - col_id - 1;
+    }
+
+    (transition.face_id, transition.facing, row_id, col_id)
 }
 
 lazy_static! {
-    static ref TEST_FACES: [Face; 1] = [
+    static ref TEST_FACES: [Face; 6] = [
         Face {
             id: 0,
             rows: 0..4,
             cols: 8..12,
-            left: Transition { face_id: 2, facing: Down, swap: true, col_delta: 0, row_delta: 0 },
-            right: Transition { face_id: 5, facing: Left, swap: false, col_delta: 4, row_delta: 4 },
-            up: Transition { face_id: 1, facing: Down, swap: false, col_delta: -4, row_delta: 4 },
-            down: Transition { face_id: 3, facing: Down, swap: false, col_delta: 0, row_delta: 0 },
+            left: Transition { face_id: 2, facing: Down, swap: true, inv_row: false, inv_col: false },
+            right: Transition { face_id: 5, facing: Left, swap: false, inv_row: true, inv_col: false },
+            up: Transition { face_id: 1, facing: Down, swap: false, inv_row: false, inv_col: true },
+            down: Transition { face_id: 3, facing: Down, swap: false, inv_row: true, inv_col: false },
         },
-//         // Face { id: 1, rows: 4..8, cols: 0..4, left_id: 2, right_id: 5, up_id: 4, down_id: 0 },
-//         // Face { id: 2, rows: 4..8, cols: 4..8, left_id: 3, right_id: 1, up_id: 4, down_id: 0 },
-//         // Face { id: 3, rows: 4..8, cols: 8..12, left_id: 5, right_id: 2, up_id: 4, down_id: 0 },
-//         // Face { id: 4, rows: 8..12, cols: 8..12, left_id: 2, right_id: 5, up_id: 3, down_id: 1 },
-//         // Face { id: 5, rows: 8..12, cols: 12..16, left_id: 4, right_id: 0, up_id: 3, down_id: 2 }
+        Face {
+            id: 1,
+            rows: 4..8,
+            cols: 0..4,
+            left: Transition { face_id: 5, facing: Up, swap: true, inv_row: true, inv_col: true },
+            right: Transition { face_id: 2, facing: Right, swap: false, inv_row: false, inv_col: true },
+            up: Transition { face_id: 0, facing: Down, swap: false, inv_row: false, inv_col: true },
+            down: Transition { face_id: 4, facing: Up, swap: false, inv_row: false, inv_col: true }
+        },
+        Face {
+            id: 2,
+            rows: 4..8,
+            cols: 4..8,
+            left: Transition { face_id: 1, facing: Left, swap: false, inv_row: false, inv_col: true },
+            right: Transition { face_id: 3, facing: Right, swap: false, inv_row: false, inv_col: true },
+            up: Transition { face_id: 0, facing: Right, swap: true, inv_row: false, inv_col: false },
+            down: Transition { face_id: 4, facing: Right, swap: true, inv_row: true, inv_col: true }
+        },
+        Face {
+            id: 3,
+            rows: 4..8,
+            cols: 8..12,
+            left: Transition { face_id: 2, facing: Left, swap: false, inv_row: false, inv_col: true },
+            right: Transition { face_id: 5, facing: Down, swap: true, inv_row: true, inv_col: true },
+            up: Transition { face_id: 0, facing: Up, swap: false, inv_row: true, inv_col: false },
+            down: Transition { face_id: 4, facing: Down, swap: false, inv_row: true, inv_col: false }
+        },
+        Face {
+            id: 4,
+            rows: 8..12,
+            cols: 8..12,
+            left: Transition { face_id: 2, facing: Up, swap: true, inv_row: true, inv_col: true },
+            right: Transition { face_id: 5, facing: Right, swap: false, inv_row: false, inv_col: true },
+            up: Transition { face_id: 3, facing: Up, swap: false, inv_row: true, inv_col: false },
+            down: Transition { face_id: 1, facing: Up, swap: false, inv_row: false, inv_col: true }
+        },
+        Face {
+            id: 5,
+            rows: 8..12,
+            cols: 12..16,
+            left: Transition { face_id: 4, facing: Left, swap: false, inv_row: false, inv_col: true },
+            right: Transition { face_id: 0, facing: Left, swap: false, inv_row: true, inv_col: false },
+            up: Transition { face_id: 3, facing: Right, swap: true, inv_row: true, inv_col: true },
+            down: Transition { face_id: 1, facing: Right, swap: true, inv_row: true, inv_col: true }
+        }
     ];
 }
 
@@ -338,5 +415,40 @@ mod tests {
 
         let input = parse_input("../inputs/d22");
         assert_eq!(p1(&input), 89224);
+    }
+
+    #[test]
+    fn move_to_face_test() {
+        let size = 4;
+
+        assert_eq!(move_to_face(&TEST_FACES, size, 0, Left, 1, 0), (2, Down, 0, 1));
+        assert_eq!(move_to_face(&TEST_FACES, size, 0, Right, 1, 3), (5, Left, 2, 3));
+        assert_eq!(move_to_face(&TEST_FACES, size, 0, Up, 0, 1), (1, Down, 0, 2));
+        assert_eq!(move_to_face(&TEST_FACES, size, 0, Down, 3, 1), (3, Down, 0, 1));
+
+        assert_eq!(move_to_face(&TEST_FACES, size, 1, Left, 1, 0), (5, Up, 3, 2));
+        assert_eq!(move_to_face(&TEST_FACES, size, 1, Right, 1, 3), (2, Right, 1, 0));
+        assert_eq!(move_to_face(&TEST_FACES, size, 1, Up, 0, 1), (0, Down, 0, 2));
+        assert_eq!(move_to_face(&TEST_FACES, size, 1, Down, 3, 1), (4, Up, 3, 2));
+
+        assert_eq!(move_to_face(&TEST_FACES, size, 2, Left, 1, 0), (1, Left, 1, 3));
+        assert_eq!(move_to_face(&TEST_FACES, size, 2, Right, 1, 3), (3, Right, 1, 0));
+        assert_eq!(move_to_face(&TEST_FACES, size, 2, Up, 0, 1), (0, Right, 1, 0));
+        assert_eq!(move_to_face(&TEST_FACES, size, 2, Down, 3, 1), (4, Right, 2, 0));
+
+        assert_eq!(move_to_face(&TEST_FACES, size, 3, Left, 1, 0), (2, Left, 1, 3));
+        assert_eq!(move_to_face(&TEST_FACES, size, 3, Right, 1, 3), (5, Down, 0, 2));
+        assert_eq!(move_to_face(&TEST_FACES, size, 3, Up, 0, 1), (0, Up, 3, 1));
+        assert_eq!(move_to_face(&TEST_FACES, size, 3, Down, 3, 1), (4, Down, 0, 1));
+
+        assert_eq!(move_to_face(&TEST_FACES, size, 4, Left, 1, 0), (2, Up, 3, 2));
+        assert_eq!(move_to_face(&TEST_FACES, size, 4, Right, 1, 3), (5, Right, 1, 0));
+        assert_eq!(move_to_face(&TEST_FACES, size, 4, Up, 0, 1), (3, Up, 3, 1));
+        assert_eq!(move_to_face(&TEST_FACES, size, 4, Down, 3, 1), (1, Up, 3, 2));
+
+        assert_eq!(move_to_face(&TEST_FACES, size, 5, Left, 1, 0), (4, Left, 1, 3));
+        assert_eq!(move_to_face(&TEST_FACES, size, 5, Right, 1, 3), (0, Left, 2, 3));
+        assert_eq!(move_to_face(&TEST_FACES, size, 5, Up, 0, 1), (3, Right, 2, 3));
+        assert_eq!(move_to_face(&TEST_FACES, size, 5, Down, 3, 1), (1, Right, 2, 0));
     }
 }
