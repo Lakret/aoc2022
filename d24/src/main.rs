@@ -217,6 +217,68 @@ fn find_path(
             .iter()
             .filter(|new_coords| !blizzards.contains_key(&new_coords) || blizzards[&new_coords].is_empty())
         {
+            // TODO: is minute and new_path_score always identical in known_path_scores?
+            // any move or waiting will cost 1 minute
+            let new_path_score = current_known_path_score + 1;
+            if new_path_score < *known_path_scores.get(&(new_coords, minute + 1)).unwrap_or(&usize::MAX) {
+                known_path_scores.insert((new_coords, minute + 1), new_path_score);
+
+                discovered.push(Reverse(ScoredCoords {
+                    coords: new_coords,
+                    score: new_path_score + heuristic(new_coords, target),
+                    minute: new_path_score,
+                }));
+            }
+        }
+    }
+
+    panic!("didn't find anything!")
+}
+
+// TODO: account for remaining trips
+fn heuristic2(start: Coords, target: Coords, trips: usize) -> usize {
+    ((target.row as i64 - start.row as i64).abs() + (target.col as i64 - start.col as i64).abs()) as usize
+}
+
+// TODO: try one big search
+fn find_path2(valley: &Valley, trips: usize) -> usize {
+    let mut blizzards_at_times = HashMap::new();
+    blizzards_at_times.insert(0, valley.blizzards.clone());
+    let mut start = valley.start;
+    let mut target = valley.target;
+
+    let mut discovered = BinaryHeap::new();
+    discovered.push(Reverse(ScoredCoords { coords: start, score: heuristic(start, target), minute: 0 }));
+    // dbg!(&discovered);
+
+    let mut known_path_scores = HashMap::new();
+    known_path_scores.insert((start, 0), 0);
+    // dbg!(&known_path_scores);
+
+    while !discovered.is_empty() {
+        let Reverse(ScoredCoords { coords, minute, .. }) = discovered.pop().unwrap();
+        if coords == target {
+            return known_path_scores[&(coords, minute)];
+        }
+
+        let current_known_path_score = known_path_scores[&(coords, minute)];
+
+        // lazily compute blizzards at a given time
+        let blizzards = match blizzards_at_times.get(&(minute + 1)) {
+            Some(blizzards) => blizzards,
+            None => {
+                let blizzards = advance(&blizzards_at_times[&(minute)], valley.target.row - 1, valley.target.col);
+                blizzards_at_times.insert(minute + 1, blizzards);
+
+                &blizzards_at_times[&(minute + 1)]
+            }
+        };
+
+        for &new_coords in get_neighbours(valley, coords)
+            .iter()
+            .filter(|new_coords| !blizzards.contains_key(&new_coords) || blizzards[&new_coords].is_empty())
+        {
+            // TODO: is minute and new_path_score always identical in known_path_scores?
             // any move or waiting will cost 1 minute
             let new_path_score = current_known_path_score + 1;
             if new_path_score < *known_path_scores.get(&(new_coords, minute + 1)).unwrap_or(&usize::MAX) {
