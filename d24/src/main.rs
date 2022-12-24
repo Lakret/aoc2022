@@ -120,6 +120,41 @@ impl PartialOrd for ScoredCoords {
 
 const MOVES: [(i32, i32); 5] = [(0, 1), (0, -1), (-1, 0), (1, 0), (0, 0)];
 
+fn get_neighbours(valley: &Valley, coords: Coords) -> Vec<Coords> {
+    // coords is the "neighbour" which corresponds to waiting in a location
+    let mut neighbours = vec![coords];
+
+    // up
+    if coords.row > 1 {
+        neighbours.push(Coords { row: coords.row - 1, col: coords.col });
+    }
+    // up to the start location
+    if coords.row == 1 && coords.col == 0 {
+        neighbours.push(Coords { row: 0, col: 0 });
+    }
+
+    // down
+    if coords.row < valley.target.row - 1 {
+        neighbours.push(Coords { row: coords.row + 1, col: coords.col });
+    }
+    // down to target
+    if coords.row < valley.target.row && coords.col == valley.target.col {
+        neighbours.push(Coords { row: coords.row + 1, col: coords.col });
+    }
+
+    // left
+    if coords.col >= 1 {
+        neighbours.push(Coords { row: coords.row, col: coords.col - 1 });
+    }
+
+    // right
+    if coords.col < valley.target.col && coords.row != 0 {
+        neighbours.push(Coords { row: coords.row, col: coords.col + 1 });
+    }
+
+    neighbours
+}
+
 // manhattan distance is always admissable here
 fn heuristic(valley: &Valley, coords: Coords) -> usize {
     (valley.target.row.saturating_sub(coords.row)) + (valley.target.col.saturating_sub(coords.col))
@@ -150,40 +185,23 @@ fn find_path(valley: &Valley) -> usize {
         let blizzards = match blizzards_at_times.get(&(minute + 1)) {
             Some(blizzards) => blizzards,
             None => {
+                println!("adding blizzards at minute {minute} + 1");
                 let blizzards = advance(&blizzards_at_times[&(minute)], valley.target.row - 1, valley.target.col);
-                blizzards_at_times.insert(minute, blizzards);
-                &blizzards_at_times[&minute]
+                blizzards_at_times.insert(minute + 1, blizzards);
+                &blizzards_at_times[&(minute + 1)]
             }
         };
 
-        for &(row_delta, col_delta) in &MOVES {
-            dbg!((row_delta, col_delta));
-
-            // discard coords outside the allowed path
-            if ((coords.row == 1 || coords.row == 0) && row_delta == -1) || (coords.col == 0 && col_delta == -1) {
-                continue;
-            }
-
-            let new_coords =
-                Coords { row: (coords.row as i32 + row_delta) as usize, col: (coords.col as i32 + col_delta) as usize };
-
-            dbg!(new_coords);
-
-            // discard wrong coordinates + cannot run into a blizzard
-            if new_coords.row > valley.target.row
-                || new_coords.col > valley.target.col
-                || (new_coords.row == 0 && new_coords.col != 0)
-                || (new_coords.row == valley.target.row && new_coords.col != valley.target.col)
-                || blizzards.contains_key(&new_coords) && !blizzards[&new_coords].is_empty()
-            {
-                continue;
-            }
-
+        for &new_coords in dbg!(get_neighbours(valley, coords))
+            .iter()
+            .filter(|new_coords| !blizzards.contains_key(&new_coords) || blizzards[&new_coords].is_empty())
+        {
             dbg!(new_coords);
 
             // any move or waiting will cost 1 minute
             let new_path_score = current_known_path_score + 1;
-            if new_path_score < *known_path_scores.get(&new_coords).unwrap_or(&usize::MAX) {
+            // normal A* condition + waiting is always allowed
+            if new_coords == coords || new_path_score < *known_path_scores.get(&new_coords).unwrap_or(&usize::MAX) {
                 known_path_scores.insert(new_coords, new_path_score);
                 dbg!(("adding to known_path_scores", new_coords, new_path_score));
 
