@@ -153,7 +153,7 @@ fn get_neighbours(valley: &Valley, coords: Coords) -> Vec<Coords> {
     neighbours
 }
 
-// manhattan distance is always admissable here
+// Manhattan distance is always admissable here
 fn heuristic(start: Coords, target: Coords) -> usize {
     ((target.row as i64 - start.row as i64).abs() + (target.col as i64 - start.col as i64).abs()) as usize
 }
@@ -162,7 +162,6 @@ fn heuristic(start: Coords, target: Coords) -> usize {
 /// - `fScore` and `openSet` tracking are combined into `discovered` BinaryHeap
 /// - `gScore` is called `known_path_scores`
 /// - we track the current minute together with the location + we use both as a key in `known_path_scores`
-/// - we always allow waiting in the current location if blizzard doesn't move there
 /// - blizzard positions are lazily computed when needed and cached; due to the continuity of the paths,
 /// we can always rely on the blizzard locations for the previous day to be cached
 fn find_path(
@@ -179,19 +178,26 @@ fn find_path(
         }
         Some(precomputed_blizzards_at_times) => {
             blizzards_at_times.insert(start_time, precomputed_blizzards_at_times[&start_time].clone());
+            // blizzards_at_times.extend(precomputed_blizzards_at_times.clone().into_iter());
         }
     }
 
     let mut discovered = BinaryHeap::new();
-    discovered.push(Reverse(ScoredCoords { coords: start, score: heuristic(start, target), minute: start_time }));
+    discovered.push(Reverse(ScoredCoords {
+        coords: start,
+        score: heuristic(start, target) + start_time,
+        minute: start_time,
+    }));
+    // dbg!(&discovered);
 
     let mut known_path_scores = HashMap::new();
     known_path_scores.insert((start, start_time), start_time);
+    dbg!(&known_path_scores);
 
     while !discovered.is_empty() {
         let Reverse(ScoredCoords { coords, minute, .. }) = discovered.pop().unwrap();
         if coords == target {
-            return (known_path_scores[&(coords, minute)], blizzards_at_times);
+            return (dbg!(known_path_scores[&(coords, minute)]), blizzards_at_times);
         }
 
         let current_known_path_score = known_path_scores[&(coords, minute)];
@@ -202,6 +208,7 @@ fn find_path(
             None => {
                 let blizzards = advance(&blizzards_at_times[&(minute)], valley.target.row - 1, valley.target.col);
                 blizzards_at_times.insert(minute + 1, blizzards);
+
                 &blizzards_at_times[&(minute + 1)]
             }
         };
@@ -212,10 +219,7 @@ fn find_path(
         {
             // any move or waiting will cost 1 minute
             let new_path_score = current_known_path_score + 1;
-            // normal A* condition + waiting is always allowed as long as the location is not affected by the blizzard
-            if new_coords == coords
-                || new_path_score < *known_path_scores.get(&(new_coords, minute + 1)).unwrap_or(&usize::MAX)
-            {
+            if new_path_score < *known_path_scores.get(&(new_coords, minute + 1)).unwrap_or(&usize::MAX) {
                 known_path_scores.insert((new_coords, minute + 1), new_path_score);
 
                 discovered.push(Reverse(ScoredCoords {
@@ -293,6 +297,19 @@ mod tests {
         assert_eq!(min3_blizzards[&Coords { row: 3, col: 2 }].len(), 2);
         assert_eq!(min3_blizzards[&Coords { row: 4, col: 2 }], vec![Right]);
         assert_eq!(min3_blizzards[&Coords { row: 4, col: 3 }], vec![Left]);
+
+        let mut tries_to_go_into_start_blizzard = HashMap::new();
+        tries_to_go_into_start_blizzard.insert(Coords { row: 1, col: 0 }, vec![Up]);
+        let advanced = advance(&tries_to_go_into_start_blizzard, test_input.target.row - 1, test_input.target.col);
+        assert_eq!(advanced.get(&Coords { row: 0, col: 0 }), None);
+        assert_eq!(advanced.get(&Coords { row: test_input.target.row - 1, col: 0 }), Some(&vec![Up]));
+
+        let mut tries_to_go_into_target_blizzard = HashMap::new();
+        tries_to_go_into_target_blizzard
+            .insert(Coords { row: test_input.target.row - 1, col: test_input.target.col }, vec![Down]);
+        let advanced = advance(&tries_to_go_into_target_blizzard, test_input.target.row - 1, test_input.target.col);
+        assert_eq!(advanced.get(&Coords { row: test_input.target.row, col: test_input.target.col }), None);
+        assert_eq!(advanced.get(&Coords { row: 1, col: test_input.target.col }), Some(&vec![Down]));
     }
 
     #[test]
