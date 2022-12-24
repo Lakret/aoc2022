@@ -106,10 +106,11 @@ end
 
 test_elfs = parse_input("inputs/d23_test")
 elfs = parse_input("inputs/d23")
-elfs = test_elfs
 
-@pipe test_elfs |> rounds(_, 10) |> visualize
-@time @assert p1(test_elfs) == 110
-@time @assert p1(elfs) == 4109
-@time @assert p2(test_elfs) == 20
-@time @assert p2(elfs) == 1055
+@assert p1(test_elfs) == 110
+@time @assert @show p1(elfs) == 4109
+@assert p2(test_elfs) == 20
+@time @assert @show p2(elfs) == 1055
+
+println()
+rounds(elfs, 1055) |> visualize
