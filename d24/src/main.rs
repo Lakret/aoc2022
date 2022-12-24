@@ -1,5 +1,4 @@
 use std::{
-    arch::x86_64::_blcic_u32,
     cmp::{Ordering, Reverse},
     collections::{BinaryHeap, HashMap},
     fs,
@@ -118,8 +117,6 @@ impl PartialOrd for ScoredCoords {
     }
 }
 
-const MOVES: [(i32, i32); 5] = [(0, 1), (0, -1), (-1, 0), (1, 0), (0, 0)];
-
 fn get_neighbours(valley: &Valley, coords: Coords) -> Vec<Coords> {
     // coords is the "neighbour" which corresponds to waiting in a location
     let mut neighbours = vec![coords];
@@ -170,47 +167,43 @@ fn find_path(valley: &Valley) -> usize {
 
     // gScore
     let mut known_path_scores = HashMap::new();
-    known_path_scores.insert(valley.start, 0);
+    known_path_scores.insert((valley.start, 0), 0);
 
     while !discovered.is_empty() {
         let Reverse(ScoredCoords { coords, minute, .. }) = discovered.pop().unwrap();
-        dbg!((coords, minute));
         if coords == valley.target {
-            return known_path_scores[&coords];
+            return known_path_scores[&(coords, minute)];
         }
 
-        let current_known_path_score = known_path_scores[&coords];
+        let current_known_path_score = known_path_scores[&(coords, minute)];
 
         // lazily compute blizzards at a given time
         let blizzards = match blizzards_at_times.get(&(minute + 1)) {
             Some(blizzards) => blizzards,
             None => {
-                println!("adding blizzards at minute {minute} + 1");
                 let blizzards = advance(&blizzards_at_times[&(minute)], valley.target.row - 1, valley.target.col);
                 blizzards_at_times.insert(minute + 1, blizzards);
                 &blizzards_at_times[&(minute + 1)]
             }
         };
 
-        for &new_coords in dbg!(get_neighbours(valley, coords))
+        for &new_coords in get_neighbours(valley, coords)
             .iter()
             .filter(|new_coords| !blizzards.contains_key(&new_coords) || blizzards[&new_coords].is_empty())
         {
-            dbg!(new_coords);
-
             // any move or waiting will cost 1 minute
             let new_path_score = current_known_path_score + 1;
             // normal A* condition + waiting is always allowed
-            if new_coords == coords || new_path_score < *known_path_scores.get(&new_coords).unwrap_or(&usize::MAX) {
-                known_path_scores.insert(new_coords, new_path_score);
-                dbg!(("adding to known_path_scores", new_coords, new_path_score));
+            if new_coords == coords
+                || new_path_score < *known_path_scores.get(&(new_coords, minute + 1)).unwrap_or(&usize::MAX)
+            {
+                known_path_scores.insert((new_coords, minute + 1), new_path_score);
 
                 discovered.push(Reverse(ScoredCoords {
                     coords: new_coords,
-                    score: heuristic(valley, new_coords),
+                    score: new_path_score + heuristic(valley, new_coords),
                     minute: new_path_score,
                 }));
-                dbg!(("adding to discovered", new_coords, heuristic(valley, new_coords), new_path_score));
             }
         }
     }
@@ -269,6 +262,9 @@ mod tests {
     #[test]
     fn find_path_test() {
         let test_input = parse_input("../inputs/d24_test");
-        assert_eq!(find_path(&test_input), 0);
+        assert_eq!(find_path(&test_input), 18);
+
+        let input = parse_input("../inputs/d24");
+        assert_eq!(find_path(&input), 281);
     }
 }
