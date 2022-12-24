@@ -2,6 +2,7 @@ use std::{
     cmp::{Ordering, Reverse},
     collections::{BinaryHeap, HashMap},
     fs,
+    time::Instant,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -153,26 +154,44 @@ fn get_neighbours(valley: &Valley, coords: Coords) -> Vec<Coords> {
 }
 
 // manhattan distance is always admissable here
-fn heuristic(valley: &Valley, coords: Coords) -> usize {
-    (valley.target.row.saturating_sub(coords.row)) + (valley.target.col.saturating_sub(coords.col))
+fn heuristic(start: Coords, target: Coords) -> usize {
+    ((target.row as i64 - start.row as i64).abs() + (target.col as i64 - start.col as i64).abs()) as usize
 }
 
-fn find_path(valley: &Valley) -> usize {
+/// A* implementation with the following tweaks compared to the Wikipedia pseudocode:
+/// - `fScore` and `openSet` tracking are combined into `discovered` BinaryHeap
+/// - `gScore` is called `known_path_scores`
+/// - we track the current minute together with the location + we use both as a key in `known_path_scores`
+/// - we always allow waiting in the current location if blizzard doesn't move there
+/// - blizzard positions are lazily computed when needed and cached; due to the continuity of the paths,
+/// we can always rely on the blizzard locations for the previous day to be cached
+fn find_path(
+    valley: &Valley,
+    start: Coords,
+    target: Coords,
+    start_time: usize,
+    precomputed_blizzards_at_times: Option<HashMap<usize, Blizzards>>,
+) -> (usize, HashMap<usize, Blizzards>) {
     let mut blizzards_at_times = HashMap::new();
-    blizzards_at_times.insert(0, valley.blizzards.clone());
+    match precomputed_blizzards_at_times {
+        None => {
+            blizzards_at_times.insert(0, valley.blizzards.clone());
+        }
+        Some(precomputed_blizzards_at_times) => {
+            blizzards_at_times.insert(start_time, precomputed_blizzards_at_times[&start_time].clone());
+        }
+    }
 
-    // openSet + current fScore used to order
     let mut discovered = BinaryHeap::new();
-    discovered.push(Reverse(ScoredCoords { coords: valley.start, score: heuristic(valley, valley.start), minute: 0 }));
+    discovered.push(Reverse(ScoredCoords { coords: start, score: heuristic(start, target), minute: start_time }));
 
-    // gScore
     let mut known_path_scores = HashMap::new();
-    known_path_scores.insert((valley.start, 0), 0);
+    known_path_scores.insert((start, start_time), start_time);
 
     while !discovered.is_empty() {
         let Reverse(ScoredCoords { coords, minute, .. }) = discovered.pop().unwrap();
-        if coords == valley.target {
-            return known_path_scores[&(coords, minute)];
+        if coords == target {
+            return (known_path_scores[&(coords, minute)], blizzards_at_times);
         }
 
         let current_known_path_score = known_path_scores[&(coords, minute)];
@@ -193,7 +212,7 @@ fn find_path(valley: &Valley) -> usize {
         {
             // any move or waiting will cost 1 minute
             let new_path_score = current_known_path_score + 1;
-            // normal A* condition + waiting is always allowed
+            // normal A* condition + waiting is always allowed as long as the location is not affected by the blizzard
             if new_coords == coords
                 || new_path_score < *known_path_scores.get(&(new_coords, minute + 1)).unwrap_or(&usize::MAX)
             {
@@ -201,7 +220,7 @@ fn find_path(valley: &Valley) -> usize {
 
                 discovered.push(Reverse(ScoredCoords {
                     coords: new_coords,
-                    score: new_path_score + heuristic(valley, new_coords),
+                    score: new_path_score + heuristic(new_coords, target),
                     minute: new_path_score,
                 }));
             }
@@ -211,8 +230,25 @@ fn find_path(valley: &Valley) -> usize {
     panic!("didn't find anything!")
 }
 
+fn p2(valley: &Valley, p1_answer: usize, p1_blizzards_at_times: HashMap<usize, Blizzards>) -> usize {
+    let (back_path_minutes, blizzards_at_back_path) =
+        find_path(&valley, valley.target, valley.start, p1_answer, Some(p1_blizzards_at_times));
+    let (p2_ans, _) = find_path(&valley, valley.start, valley.target, back_path_minutes, Some(blizzards_at_back_path));
+    p2_ans
+}
+
 fn main() {
-    println!("Hello, world!");
+    let valley = parse_input("../inputs/d24");
+
+    let timer = Instant::now();
+    let (p1_ans, p1_blizzards_at_times) = find_path(&valley, valley.start, valley.target, 0, None);
+    let elapsed = timer.elapsed();
+    println!("\np1 ans = {p1_ans} [{elapsed:?}]");
+
+    let timer = Instant::now();
+    let p2_ans = p2(&valley, p1_ans, p1_blizzards_at_times);
+    let elapsed = timer.elapsed();
+    println!("p2 ans = {p2_ans} [{elapsed:?}]");
 }
 
 #[cfg(test)]
@@ -262,9 +298,17 @@ mod tests {
     #[test]
     fn find_path_test() {
         let test_input = parse_input("../inputs/d24_test");
-        assert_eq!(find_path(&test_input), 18);
+
+        let (p1_ans_test, blizzards_at_p1_test) = find_path(&test_input, test_input.start, test_input.target, 0, None);
+        assert_eq!(p1_ans_test, 18);
+
+        assert_eq!(p2(&test_input, p1_ans_test, blizzards_at_p1_test), 54);
 
         let input = parse_input("../inputs/d24");
-        assert_eq!(find_path(&input), 281);
+        let (p1_ans, blizzards_at_p1) = find_path(&input, input.start, input.target, 0, None);
+        assert_eq!(p1_ans, 281);
+
+        // 743 is too low
+        assert_ne!(p2(&input, p1_ans, blizzards_at_p1), 743);
     }
 }
