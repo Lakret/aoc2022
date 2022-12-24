@@ -51,7 +51,7 @@ function round(elfs::Set{CartesianIndex{2}}; start_move_idx::Int=1)::Set{Cartesi
     # second part of the round: elfs with non-conflicting proposals move
     new_elfs = deepcopy(elfs)
     invalid_destinations = Set(keys(filter(x -> x[2] > 1, destination_claims)))
-    valid_proposals = filter(proposal -> !(proposal[2] in invalid_destinations), proposals)
+    valid_proposals = filter(proposal -> !(proposal[2] ∈ invalid_destinations), proposals)
     for proposal = valid_proposals
         delete!(new_elfs, proposal[1])
         push!(new_elfs, proposal[2])
