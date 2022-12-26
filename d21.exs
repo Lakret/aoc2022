@@ -18,6 +18,11 @@ defmodule D21 do
     |> Map.new()
   end
 
+  def eval_op("+", a, b), do: a + b
+  def eval_op("-", a, b), do: a - b
+  def eval_op("*", a, b), do: a * b
+  def eval_op("/", a, b), do: div(a, b)
+
   def eval_once(input, env \\ %{}) do
     Enum.reduce(input, env, fn
       {name, num}, env when is_integer(num) ->
@@ -26,27 +31,7 @@ defmodule D21 do
       {name, {op, a, b}}, env ->
         if Map.has_key?(env, a) and Map.has_key?(env, b) do
           {a, b} = {env[a], env[b]}
-
-          res =
-            case op do
-              "+" ->
-                a + b
-
-              "-" ->
-                a - b
-
-              "*" ->
-                a * b
-
-              "/" ->
-                a / b
-            end
-
-          if not is_nil(res) do
-            Map.put(env, name, res)
-          else
-            env
-          end
+          Map.put(env, name, eval_op(op, a, b))
         else
           env
         end
@@ -59,6 +44,42 @@ defmodule D21 do
     else
       env = eval_once(input, env)
       eval(input, stop_monkey, env)
+    end
+  end
+
+  def build_relation_once(input, env \\ %{}) do
+    Enum.reduce(input, env, fn
+      {"humn", _num}, env ->
+        Map.put(env, "humn", :humn)
+
+      {name, num}, env when is_integer(num) ->
+        Map.put(env, name, num)
+
+      {name, {op, a, b}}, env ->
+        if Map.has_key?(env, a) and Map.has_key?(env, b) do
+          {a, b} = {env[a], env[b]}
+
+          if name == "root" do
+            Map.put(env, name, {"=", a, b})
+          else
+            if is_integer(a) && is_integer(b) do
+              Map.put(env, name, eval_op(op, a, b))
+            else
+              Map.put(env, name, {op, a, b})
+            end
+          end
+        else
+          env
+        end
+    end)
+  end
+
+  def build_relation(input, env \\ %{}) do
+    if Map.has_key?(env, "root") do
+      env["root"]
+    else
+      env = build_relation_once(input, env)
+      build_relation(input, env)
     end
   end
 
@@ -115,16 +136,32 @@ defmodule D21 do
       end
     end)
   end
+
+  def contains?(num, _name) when is_integer(num), do: false
+  def contains?({_op, name, _}, name) when is_atom(name) or is_binary(name), do: true
+  def contains?({_op, _, name}, name) when is_atom(name) or is_binary(name), do: true
+  def contains?({_op, left, right}, name), do: contains?(left, name) || contains?(right, name)
 end
+
+import ExUnit.Assertions
 
 input = D21.parse_input("inputs/d21")
 test_input = D21.parse_input("inputs/d21_test")
 
-D21.p1(test_input) == 152
-D21.p1(input) == 291_425_799_367_130
+assert D21.p1(test_input) == 152
+assert D21.p1(input) == 291_425_799_367_130
 
 :timer.tc(fn -> D21.p1(test_input) end)
 :timer.tc(fn -> D21.p1(input) end)
+
+D21.build_relation(test_input)
+{"=", left, right} = D21.build_relation(test_input)
+assert D21.contains?(left, :humn) == true
+assert D21.contains?(right, :humn) == false
+
+{"=", left, right} = D21.build_relation(input)
+assert D21.contains?(left, :humn) == true
+assert D21.contains?(right, :humn) == false
 
 D21.topological_order(test_input, "root")
 test_input["root"]
