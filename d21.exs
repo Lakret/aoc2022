@@ -102,7 +102,13 @@ defmodule D21 do
     do: infer(input, num, eval_op(op, left, right))
 
   def infer(input, num, {op, left, right}) when is_integer(left) do
-    num = eval_op(op, left, num)
+    num =
+      if op in ["-", "/"] do
+        eval_op(op, left, num)
+      else
+        eval_op(@rev_op[op], num, left)
+      end
+
     infer(input, num, right)
   end
 
@@ -187,6 +193,7 @@ D21.build_relation(test_input)
 assert D21.contains?(left, :humn) == true
 assert D21.contains?(right, :humn) == false
 assert D21.infer(test_input) == 301
+assert D21.infer(input) == 3_219_579_395_609
 
 {"=", left, right} = D21.build_relation(input)
 assert D21.contains?(left, :humn) == true
