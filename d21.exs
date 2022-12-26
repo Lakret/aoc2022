@@ -83,6 +83,34 @@ defmodule D21 do
     end
   end
 
+  @rev_op %{"+" => "-", "*" => "/", "-" => "+", "/" => "*"}
+
+  def infer(input) do
+    {"=", left, right} = D21.build_relation(input)
+
+    cond do
+      is_integer(left) -> infer(input, left, right)
+      is_integer(right) -> infer(input, right, left)
+      true -> raise("cannot reduce a branch to an integer")
+    end
+  end
+
+  # TODO: something is still off here
+  def infer(input, num, :humn) when is_integer(num), do: num
+
+  def infer(input, num, {op, left, right}) when is_integer(left) and is_integer(right),
+    do: infer(input, num, eval_op(op, left, right))
+
+  def infer(input, num, {op, left, right}) when is_integer(left) do
+    num = eval_op(op, left, num)
+    infer(input, num, right)
+  end
+
+  def infer(input, num, {op, left, right}) when is_integer(right) do
+    num = eval_op(@rev_op[op], num, right)
+    infer(input, num, left)
+  end
+
   def topological_order(input, stop_monkey) do
     {no_deps, graph} =
       Enum.reduce(input, {MapSet.new(), %{}}, fn
@@ -158,6 +186,7 @@ D21.build_relation(test_input)
 {"=", left, right} = D21.build_relation(test_input)
 assert D21.contains?(left, :humn) == true
 assert D21.contains?(right, :humn) == false
+assert D21.infer(test_input) == 301
 
 {"=", left, right} = D21.build_relation(input)
 assert D21.contains?(left, :humn) == true
