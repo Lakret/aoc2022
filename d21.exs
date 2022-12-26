@@ -23,7 +23,7 @@ defmodule D21 do
   def eval_op("*", a, b), do: a * b
   def eval_op("/", a, b), do: div(a, b)
 
-  def eval_once(input, env \\ %{}) do
+  defp eval_once(input, env) do
     Enum.reduce(input, env, fn
       {name, num}, env when is_integer(num) ->
         Map.put(env, name, num)
@@ -47,7 +47,36 @@ defmodule D21 do
     end
   end
 
-  def build_relation_once(input, env \\ %{}) do
+  def p1(input) do
+    eval(input, "root") |> round()
+  end
+
+  def p2(input) do
+    {"=", left, right} = D21.build_relation(input)
+
+    cond do
+      is_integer(left) -> infer(input, left, right)
+      is_integer(right) -> infer(input, right, left)
+      true -> raise("cannot reduce a branch to an integer")
+    end
+  end
+
+  @rev_op %{"+" => "-", "*" => "/", "-" => "+", "/" => "*"}
+
+  @doc false
+  def build_relation(input, env \\ %{}) do
+    if Map.has_key?(env, "root") do
+      env["root"]
+    else
+      env = build_relation_once(input, env)
+      build_relation(input, env)
+    end
+  end
+
+  # simplifies the expression by evaluating branches that don't contain :humn;
+  # since both test and input have only one branch that contains :humn, the resulting
+  # tree will have a form of `{"=", left, right}` where one of `left` or `rigth` is guaranteed to be an integer
+  defp build_relation_once(input, env) do
     Enum.reduce(input, env, fn
       {"humn", _num}, env ->
         Map.put(env, "humn", :humn)
@@ -74,34 +103,10 @@ defmodule D21 do
     end)
   end
 
-  def build_relation(input, env \\ %{}) do
-    if Map.has_key?(env, "root") do
-      env["root"]
-    else
-      env = build_relation_once(input, env)
-      build_relation(input, env)
-    end
-  end
+  # progressively reverse operations keeping `num` as the current number to which the last argument should be equal
+  defp infer(_input, num, :humn) when is_integer(num), do: num
 
-  @rev_op %{"+" => "-", "*" => "/", "-" => "+", "/" => "*"}
-
-  def infer(input) do
-    {"=", left, right} = D21.build_relation(input)
-
-    cond do
-      is_integer(left) -> infer(input, left, right)
-      is_integer(right) -> infer(input, right, left)
-      true -> raise("cannot reduce a branch to an integer")
-    end
-  end
-
-  # TODO: something is still off here
-  def infer(input, num, :humn) when is_integer(num), do: num
-
-  def infer(input, num, {op, left, right}) when is_integer(left) and is_integer(right),
-    do: infer(input, num, eval_op(op, left, right))
-
-  def infer(input, num, {op, left, right}) when is_integer(left) do
+  defp infer(input, num, {op, left, right}) when is_integer(left) do
     num =
       if op in ["-", "/"] do
         eval_op(op, left, num)
@@ -112,69 +117,10 @@ defmodule D21 do
     infer(input, num, right)
   end
 
-  def infer(input, num, {op, left, right}) when is_integer(right) do
+  defp infer(input, num, {op, left, right}) when is_integer(right) do
     num = eval_op(@rev_op[op], num, right)
     infer(input, num, left)
   end
-
-  def topological_order(input, stop_monkey) do
-    {no_deps, graph} =
-      Enum.reduce(input, {MapSet.new(), %{}}, fn
-        {name, val}, {no_deps, graph} when is_number(val) ->
-          {MapSet.put(no_deps, name), graph}
-
-        {name, {_op, name1, name2}}, {no_deps, graph} ->
-          {no_deps, Map.put(graph, name, [name1, name2])}
-      end)
-
-    topological_order(no_deps, graph, stop_monkey, [])
-  end
-
-  defp topological_order(no_deps, graph, stop_monkey, ordering) do
-    ordering = ordering ++ MapSet.to_list(no_deps)
-
-    if MapSet.size(no_deps) == 0 || stop_monkey in no_deps do
-      ordering
-    else
-      {new_no_deps, graph} =
-        Enum.reduce(graph, {MapSet.new(), %{}}, fn {name, dependencies}, {new_no_deps, graph} ->
-          case Enum.filter(dependencies, fn dep -> dep not in no_deps end) do
-            [] -> {MapSet.put(new_no_deps, name), graph}
-            dependencies -> {new_no_deps, Map.put(graph, name, dependencies)}
-          end
-        end)
-
-      topological_order(new_no_deps, graph, stop_monkey, ordering)
-    end
-  end
-
-  def p1(input) do
-    eval(input, "root") |> round()
-  end
-
-  def p2(input) do
-    {_, monkey1, monkey2} = input["root"]
-    input = Map.delete(input, "root")
-
-    Enum.reduce_while(1..10_000, nil, fn humn, acc ->
-      if rem(humn, 1000) == 0 do
-        IO.inspect(humn, label: :iteration)
-      end
-
-      input = Map.put(input, "humn", humn)
-
-      if eval(input, monkey1) == eval(input, monkey2) do
-        {:halt, humn}
-      else
-        {:cont, acc}
-      end
-    end)
-  end
-
-  def contains?(num, _name) when is_integer(num), do: false
-  def contains?({_op, name, _}, name) when is_atom(name) or is_binary(name), do: true
-  def contains?({_op, _, name}, name) when is_atom(name) or is_binary(name), do: true
-  def contains?({_op, left, right}, name), do: contains?(left, name) || contains?(right, name)
 end
 
 import ExUnit.Assertions
@@ -183,36 +129,11 @@ input = D21.parse_input("inputs/d21")
 test_input = D21.parse_input("inputs/d21_test")
 
 assert D21.p1(test_input) == 152
-assert D21.p1(input) == 291_425_799_367_130
+p1_ans = D21.p1(input)
+assert p1_ans == 291_425_799_367_130
+IO.puts("p1_ans = #{p1_ans}")
 
-:timer.tc(fn -> D21.p1(test_input) end)
-:timer.tc(fn -> D21.p1(input) end)
-
-D21.build_relation(test_input)
-{"=", left, right} = D21.build_relation(test_input)
-assert D21.contains?(left, :humn) == true
-assert D21.contains?(right, :humn) == false
-assert D21.infer(test_input) == 301
-assert D21.infer(input) == 3_219_579_395_609
-
-{"=", left, right} = D21.build_relation(input)
-assert D21.contains?(left, :humn) == true
-assert D21.contains?(right, :humn) == false
-
-D21.topological_order(test_input, "root")
-test_input["root"]
-D21.topological_order(test_input, "pppw")
-D21.topological_order(test_input, "sjmn")
-
-D21.topological_order(input, "root") |> length()
-input["root"]
-D21.topological_order(input, "pgtp") |> length()
-D21.topological_order(input, "vrvh") |> length()
-D21.topological_order(input, "humn") |> length()
-
-D21.eval(input, "pgtp")
-D21.eval(input, "vrvh")
-
-D21.p2(test_input) == 301
-# 30 seconds for 1000 iterations => way too slow
-D21.p2(input)
+assert D21.p2(test_input) == 301
+p2_ans = D21.p2(input)
+assert p2_ans == 3_219_579_395_609
+IO.puts("p2_ans = #{p2_ans}")
