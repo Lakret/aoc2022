@@ -249,7 +249,11 @@ fn find_path2(valley: &Valley, trips: usize) -> usize {
     let mut trip = 1;
 
     let mut discovered = BinaryHeap::new();
-    discovered.push(Reverse(ScoredCoords { coords: start, score: heuristic(start, target), minute: 0 }));
+    discovered.push(Reverse(ScoredCoords {
+        coords: start,
+        score: heuristic2(valley, start, target, trips, trip),
+        minute: 0,
+    }));
     // dbg!(&discovered);
 
     let mut known_path_scores = HashMap::new();
@@ -267,15 +271,14 @@ fn find_path2(valley: &Valley, trips: usize) -> usize {
                 known_path_scores.insert((coords, minute), minutes);
 
                 mem::swap(&mut start, &mut target);
+                trip += 1;
 
                 discovered.clear();
                 discovered.push(dbg!(Reverse(ScoredCoords {
                     coords: start,
-                    score: minutes + heuristic(start, target),
+                    score: minutes + heuristic2(valley, start, target, trips, trip),
                     minute: minutes,
                 })));
-
-                trip += 1
             } else {
                 return known_path_scores[&(coords, minute)];
             }
@@ -306,7 +309,7 @@ fn find_path2(valley: &Valley, trips: usize) -> usize {
 
                 discovered.push(Reverse(ScoredCoords {
                     coords: new_coords,
-                    score: new_path_score + heuristic(new_coords, target),
+                    score: new_path_score + heuristic2(valley, new_coords, target, trips, trip),
                     minute: new_path_score,
                 }));
             }
