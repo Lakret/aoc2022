@@ -1,7 +1,7 @@
 use std::{
     cmp::{Ordering, Reverse},
     collections::{BinaryHeap, HashMap},
-    fs,
+    fs, mem,
     time::Instant,
 };
 
@@ -235,17 +235,18 @@ fn find_path(
     panic!("didn't find anything!")
 }
 
-// TODO: account for remaining trips
-fn heuristic2(start: Coords, target: Coords, trips: usize) -> usize {
+fn heuristic2(valley: &Valley, start: Coords, target: Coords, trips: usize, trip: usize) -> usize {
     ((target.row as i64 - start.row as i64).abs() + (target.col as i64 - start.col as i64).abs()) as usize
+        + (trips - trip) * ((valley.target.row - valley.start.row) + (valley.target.col - valley.start.col))
 }
 
-// TODO: try one big search
 fn find_path2(valley: &Valley, trips: usize) -> usize {
     let mut blizzards_at_times = HashMap::new();
     blizzards_at_times.insert(0, valley.blizzards.clone());
+
     let mut start = valley.start;
     let mut target = valley.target;
+    let mut trip = 1;
 
     let mut discovered = BinaryHeap::new();
     discovered.push(Reverse(ScoredCoords { coords: start, score: heuristic(start, target), minute: 0 }));
@@ -258,7 +259,26 @@ fn find_path2(valley: &Valley, trips: usize) -> usize {
     while !discovered.is_empty() {
         let Reverse(ScoredCoords { coords, minute, .. }) = discovered.pop().unwrap();
         if coords == target {
-            return known_path_scores[&(coords, minute)];
+            if trip < trips {
+                let minutes = known_path_scores[&(coords, minute)];
+                // TODO: if this doesn't fail, we know that we can simplify the ds
+                // assert_eq!(minutes, minute);
+                known_path_scores.clear();
+                known_path_scores.insert((coords, minute), minutes);
+
+                mem::swap(&mut start, &mut target);
+
+                discovered.clear();
+                discovered.push(dbg!(Reverse(ScoredCoords {
+                    coords: start,
+                    score: minutes + heuristic(start, target),
+                    minute: minutes,
+                })));
+
+                trip += 1
+            } else {
+                return known_path_scores[&(coords, minute)];
+            }
         }
 
         let current_known_path_score = known_path_scores[&(coords, minute)];
@@ -376,18 +396,21 @@ mod tests {
 
     #[test]
     fn find_path_test() {
-        let test_input = parse_input("../inputs/d24_test");
+        // let test_input = parse_input("../inputs/d24_test");
 
-        let (p1_ans_test, blizzards_at_p1_test) = find_path(&test_input, test_input.start, test_input.target, 0, None);
-        assert_eq!(p1_ans_test, 18);
+        // let (p1_ans_test, blizzards_at_p1_test) = find_path(&test_input, test_input.start, test_input.target, 0, None);
+        // assert_eq!(p1_ans_test, 18);
 
-        assert_eq!(p2(&test_input, p1_ans_test, blizzards_at_p1_test), 54);
+        // assert_eq!(p2(&test_input, p1_ans_test, blizzards_at_p1_test), 54);
 
         let input = parse_input("../inputs/d24");
-        let (p1_ans, blizzards_at_p1) = find_path(&input, input.start, input.target, 0, None);
-        assert_eq!(p1_ans, 281);
+        // let (p1_ans, blizzards_at_p1) = find_path(&input, input.start, input.target, 0, None);
+        // assert_eq!(p1_ans, 281);
 
         // 743 is too low
-        assert_ne!(p2(&input, p1_ans, blizzards_at_p1), 743);
+        // assert_ne!(p2(&input, p1_ans, blizzards_at_p1), 743);
+
+        assert_ne!(find_path2(&input, 3), 743);
+        dbg!(find_path2(&input, 3));
     }
 }
