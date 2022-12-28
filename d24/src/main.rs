@@ -161,7 +161,7 @@ fn heuristic(start: Coords, target: Coords) -> usize {
 /// A* implementation with the following tweaks compared to the Wikipedia pseudocode:
 /// - `fScore` and `openSet` tracking are combined into `discovered` BinaryHeap
 /// - `gScore` is called `known_path_scores`
-/// - we track the current minute together with the location + we use both as a key in `known_path_scores`
+/// - we track the current minute together with the location + we put both in a set of `known_path_scores`
 /// - blizzard positions are lazily computed when needed and cached; due to the continuity of the paths,
 /// we can always rely on the blizzard locations for the previous day to be cached
 fn find_path(
@@ -192,7 +192,7 @@ fn find_path(
 
     let mut known_path_scores = HashSet::new();
     known_path_scores.insert((start, start_time));
-    dbg!(&known_path_scores);
+    // dbg!(&known_path_scores);
 
     while !discovered.is_empty() {
         let Reverse(ScoredCoords { coords, minute, .. }) = discovered.pop().unwrap();
@@ -200,14 +200,17 @@ fn find_path(
             return (dbg!(minute), blizzards_at_times);
         }
 
+        // any move or waiting will cost 1 minute
+        let next_minute = minute + 1;
+
         // lazily compute blizzards at a given time
-        let blizzards = match blizzards_at_times.get(&(minute + 1)) {
+        let blizzards = match blizzards_at_times.get(&next_minute) {
             Some(blizzards) => blizzards,
             None => {
-                let blizzards = advance(&blizzards_at_times[&(minute)], valley.target.row - 1, valley.target.col);
-                blizzards_at_times.insert(minute + 1, blizzards);
+                let blizzards = advance(&blizzards_at_times[&minute], valley.target.row - 1, valley.target.col);
+                blizzards_at_times.insert(next_minute, blizzards);
 
-                &blizzards_at_times[&(minute + 1)]
+                &blizzards_at_times[&next_minute]
             }
         };
 
@@ -215,15 +218,13 @@ fn find_path(
             .iter()
             .filter(|new_coords| !blizzards.contains_key(&new_coords) || blizzards[&new_coords].is_empty())
         {
-            // any move or waiting will cost 1 minute
-            let new_path_score = minute + 1;
-            if !known_path_scores.contains(&(new_coords, new_path_score)) {
-                known_path_scores.insert((new_coords, new_path_score));
+            if !known_path_scores.contains(&(new_coords, next_minute)) {
+                known_path_scores.insert((new_coords, next_minute));
 
                 discovered.push(Reverse(ScoredCoords {
                     coords: new_coords,
-                    score: new_path_score + heuristic(new_coords, target),
-                    minute: new_path_score,
+                    score: next_minute + heuristic(new_coords, target),
+                    minute: next_minute,
                 }));
             }
         }
