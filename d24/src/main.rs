@@ -170,7 +170,7 @@ fn find_path(
     target: Coords,
     start_time: usize,
     precomputed_blizzards_at_times: Option<HashMap<usize, Blizzards>>,
-) -> (usize, HashMap<usize, Blizzards>) {
+) -> (usize, HashMap<usize, Blizzards>, HashMap<Coords, Coords>) {
     let mut blizzards_at_times = HashMap::new();
     match precomputed_blizzards_at_times {
         None => {
@@ -194,10 +194,13 @@ fn find_path(
     known_path_scores.insert((start, start_time));
     // dbg!(&known_path_scores);
 
+    // used to track the path
+    let mut came_from = HashMap::new();
+
     while !discovered.is_empty() {
         let Reverse(ScoredCoords { coords, minute, .. }) = discovered.pop().unwrap();
         if coords == target {
-            return (dbg!(minute), blizzards_at_times);
+            return (dbg!(minute), blizzards_at_times, came_from);
         }
 
         // any move or waiting will cost 1 minute
@@ -220,6 +223,7 @@ fn find_path(
         {
             if !known_path_scores.contains(&(new_coords, next_minute)) {
                 known_path_scores.insert((new_coords, next_minute));
+                came_from.insert(new_coords, coords);
 
                 discovered.push(Reverse(ScoredCoords {
                     coords: new_coords,
@@ -319,23 +323,37 @@ fn find_path2(valley: &Valley, trips: usize) -> usize {
     panic!("didn't find anything!")
 }
 
-fn p2(valley: &Valley, p1_answer: usize, p1_blizzards_at_times: HashMap<usize, Blizzards>) -> usize {
-    let (back_path_minutes, blizzards_at_back_path) =
-        find_path(&valley, valley.target, valley.start, p1_answer, Some(p1_blizzards_at_times));
-    let (p2_ans, _) = find_path(&valley, valley.start, valley.target, back_path_minutes, Some(blizzards_at_back_path));
-    p2_ans
+fn p2(
+    valley: &Valley,
+    p1_answer: usize,
+    p1_blizzards_at_times: HashMap<usize, Blizzards>,
+    p1_path: HashMap<Coords, Coords>,
+) -> (usize, HashMap<usize, Blizzards>, Vec<HashMap<Coords, Coords>>) {
+    let (back_path_minutes, blizzards_at_back_path, back_path) =
+        find_path(&valley, valley.target, valley.start, p1_answer, Some(p1_blizzards_at_times.clone()));
+    let (p2_ans, blizzards_at_final_path, final_path) =
+        find_path(&valley, valley.start, valley.target, back_path_minutes, Some(blizzards_at_back_path.clone()));
+
+    let mut all_blizzards = HashMap::new();
+    all_blizzards.extend(p1_blizzards_at_times.into_iter());
+    all_blizzards.extend(blizzards_at_back_path.into_iter());
+    all_blizzards.extend(blizzards_at_final_path.into_iter());
+
+    let all_paths = vec![p1_path, back_path, final_path];
+
+    (p2_ans, all_blizzards, all_paths)
 }
 
 fn main() {
     let valley = parse_input("../inputs/d24");
 
     let timer = Instant::now();
-    let (p1_ans, p1_blizzards_at_times) = find_path(&valley, valley.start, valley.target, 0, None);
+    let (p1_ans, p1_blizzards_at_times, came_from) = find_path(&valley, valley.start, valley.target, 0, None);
     let elapsed = timer.elapsed();
     println!("\np1 ans = {p1_ans} [{elapsed:?}]");
 
     let timer = Instant::now();
-    let p2_ans = p2(&valley, p1_ans, p1_blizzards_at_times);
+    let (p2_ans, _p2_blizzards, _p2_paths) = p2(&valley, p1_ans, p1_blizzards_at_times, came_from);
     let elapsed = timer.elapsed();
     println!("p2 ans = {p2_ans} [{elapsed:?}]");
 }
@@ -401,19 +419,23 @@ mod tests {
     fn find_path_test() {
         let test_input = parse_input("../inputs/d24_test");
 
-        let (p1_ans_test, blizzards_at_p1_test) = find_path(&test_input, test_input.start, test_input.target, 0, None);
+        let (p1_ans_test, blizzards_at_p1_test, p1_test_path) =
+            find_path(&test_input, test_input.start, test_input.target, 0, None);
         assert_eq!(p1_ans_test, 18);
 
-        assert_eq!(p2(&test_input, p1_ans_test, blizzards_at_p1_test), 54);
+        let (p2_ans_test, all_blizzards_test, all_paths_test) =
+            p2(&test_input, p1_ans_test, blizzards_at_p1_test, p1_test_path);
+        assert_eq!(p2_ans_test, 54);
 
         // assert_eq!(find_path2(&test_input, 3), 54);
 
         let input = parse_input("../inputs/d24");
-        let (p1_ans, blizzards_at_p1) = find_path(&input, input.start, input.target, 0, None);
+        let (p1_ans, blizzards_at_p1, p1_path) = find_path(&input, input.start, input.target, 0, None);
         assert_eq!(p1_ans, 281);
 
         // 743 is too low
-        assert_ne!(p2(&input, p1_ans, blizzards_at_p1), 743);
+        let (p2_ans, all_blizzards, all_paths) = p2(&input, p1_ans, blizzards_at_p1, p1_path);
+        assert_ne!(p2_ans, 743);
 
         // assert_ne!(find_path2(&input, 3), 743);
         // dbg!(find_path2(&input, 3));
