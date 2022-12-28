@@ -1,6 +1,6 @@
 use std::{
     cmp::{Ordering, Reverse},
-    collections::{BinaryHeap, HashMap},
+    collections::{BinaryHeap, HashMap, HashSet},
     fs, mem,
     time::Instant,
 };
@@ -190,17 +190,15 @@ fn find_path(
     }));
     // dbg!(&discovered);
 
-    let mut known_path_scores = HashMap::new();
-    known_path_scores.insert((start, start_time), start_time);
+    let mut known_path_scores = HashSet::new();
+    known_path_scores.insert((start, start_time));
     dbg!(&known_path_scores);
 
     while !discovered.is_empty() {
         let Reverse(ScoredCoords { coords, minute, .. }) = discovered.pop().unwrap();
         if coords == target {
-            return (dbg!(known_path_scores[&(coords, minute)]), blizzards_at_times);
+            return (dbg!(minute), blizzards_at_times);
         }
-
-        let current_known_path_score = known_path_scores[&(coords, minute)];
 
         // lazily compute blizzards at a given time
         let blizzards = match blizzards_at_times.get(&(minute + 1)) {
@@ -217,11 +215,10 @@ fn find_path(
             .iter()
             .filter(|new_coords| !blizzards.contains_key(&new_coords) || blizzards[&new_coords].is_empty())
         {
-            // TODO: is minute and new_path_score always identical in known_path_scores?
             // any move or waiting will cost 1 minute
-            let new_path_score = current_known_path_score + 1;
-            if new_path_score < *known_path_scores.get(&(new_coords, minute + 1)).unwrap_or(&usize::MAX) {
-                known_path_scores.insert((new_coords, minute + 1), new_path_score);
+            let new_path_score = minute + 1;
+            if !known_path_scores.contains(&(new_coords, new_path_score)) {
+                known_path_scores.insert((new_coords, new_path_score));
 
                 discovered.push(Reverse(ScoredCoords {
                     coords: new_coords,
@@ -269,6 +266,8 @@ fn find_path2(valley: &Valley, trips: usize) -> usize {
                 // assert_eq!(minutes, minute);
                 known_path_scores.clear();
                 known_path_scores.insert((coords, minute), minutes);
+
+                dbg!((trip, minutes, minute));
 
                 mem::swap(&mut start, &mut target);
                 trip += 1;
@@ -399,21 +398,23 @@ mod tests {
 
     #[test]
     fn find_path_test() {
-        // let test_input = parse_input("../inputs/d24_test");
+        let test_input = parse_input("../inputs/d24_test");
 
-        // let (p1_ans_test, blizzards_at_p1_test) = find_path(&test_input, test_input.start, test_input.target, 0, None);
-        // assert_eq!(p1_ans_test, 18);
+        let (p1_ans_test, blizzards_at_p1_test) = find_path(&test_input, test_input.start, test_input.target, 0, None);
+        assert_eq!(p1_ans_test, 18);
 
-        // assert_eq!(p2(&test_input, p1_ans_test, blizzards_at_p1_test), 54);
+        assert_eq!(p2(&test_input, p1_ans_test, blizzards_at_p1_test), 54);
+
+        // assert_eq!(find_path2(&test_input, 3), 54);
 
         let input = parse_input("../inputs/d24");
-        // let (p1_ans, blizzards_at_p1) = find_path(&input, input.start, input.target, 0, None);
-        // assert_eq!(p1_ans, 281);
+        let (p1_ans, blizzards_at_p1) = find_path(&input, input.start, input.target, 0, None);
+        assert_eq!(p1_ans, 281);
 
         // 743 is too low
-        // assert_ne!(p2(&input, p1_ans, blizzards_at_p1), 743);
+        assert_ne!(p2(&input, p1_ans, blizzards_at_p1), 743);
 
-        assert_ne!(find_path2(&input, 3), 743);
-        dbg!(find_path2(&input, 3));
+        // assert_ne!(find_path2(&input, 3), 743);
+        // dbg!(find_path2(&input, 3));
     }
 }
