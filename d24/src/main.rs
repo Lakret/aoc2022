@@ -344,6 +344,10 @@ fn p2(
     (p2_ans, all_blizzards, all_paths)
 }
 
+fn visualize(blizzards: HashMap<usize, Blizzards>, paths: HashMap<Coords, Coords>) {
+    // TODO: show all 3 paths and blizzards to see if we are somehow cheating
+}
+
 fn main() {
     let valley = parse_input("../inputs/d24");
 
